@@ -1,0 +1,52 @@
+{
+  "fitted_at": "2026-09-14T15:36:34Z",
+  "trained_on": {
+    "answers": 20,
+    "read": 14,
+    "spontaneous": 6,
+    "sessions": [
+      "20260913T141835Z-d4d6ec61",
+      "20260913T170844Z-686fed22",
+      "20260914T145052Z-9db8c840",
+      "20260914T145416Z-82e85777",
+      "20260914T145752Z-4f5907f3",
+      "20260914T150058Z-baa0d57a",
+      "20260914T150422Z-2b836224"
+    ],
+    "speakers": 1,
+    "min_words": 15
+  },
+  "unseen_session_accuracy": {
+    "balanced_accuracy": 0.893,
+    "answers": 20,
+    "missed_read": 3,
+    "flagged_spontaneous": 0
+  },
+  "signals": [
+    {
+      "name": "long_word_share/base",
+      "direction": "higher",
+      "mean": 2.176977781688235,
+      "sd": 1.131397876916687
+    },
+    {
+      "name": "disfluency_rate",
+      "direction": "lower",
+      "mean": 2.754857738234148,
+      "sd": 2.4117976291041345
+    },
+    {
+      "name": "comma_rate/base",
+      "direction": "lower",
+      "mean": 0.8001128436674066,
+      "sd": 0.708527341474803
+    },
+    {
+      "name": "mean_run/base",
+      "direction": "higher",
+      "mean": 1.1852373677284729,
+      "sd": 0.3248290785038938
+    }
+  ],
+  "threshold": -0.21211678978832083
+}

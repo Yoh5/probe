@@ -1,0 +1,20 @@
+{
+  "questions": [
+    {
+      "kind": "baseline",
+      "text": "Before we start, walk me through your day yesterday, from the morning on. Take thirty seconds or so."
+    },
+    {
+      "kind": "experience",
+      "text": "Tell me about a project you are proud of, and what your role was in it."
+    },
+    {
+      "kind": "experience",
+      "text": "Describe a time you disagreed with a teammate. How did you handle it?"
+    },
+    {
+      "kind": "technical",
+      "text": "What is the difference between a process and a thread?"
+    }
+  ]
+}
