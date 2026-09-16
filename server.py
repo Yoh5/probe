@@ -85,8 +85,15 @@ def index() -> FileResponse:
 
 @app.get("/api/interview")
 def brief() -> dict:
-    """What the page may show: the role and the languages on offer, nothing more."""
-    return {"role": BRIEF["role"], "languages": BRIEF["languages"]}
+    """What the page may show: the role, the languages, and how many parts there are.
+
+    How many, and never which: the count lets the page say where the candidate has
+    got to, while the topics themselves stay on the server. A candidate who could
+    read them could prepare for them, which is the whole thing this interview is
+    built to see through.
+    """
+    return {"role": BRIEF["role"], "languages": BRIEF["languages"],
+            "parts": len(BRIEF["topics"]) + 1}
 
 
 async def _token(client: httpx.AsyncClient, url: str, headers: dict, params: dict) -> str:

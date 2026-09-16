@@ -1,0 +1,197 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>running</title>
+<!--
+  The interview conducted against a fake AssemblyAI.
+
+  The page is the real one: it is fetched, its markup and styles are installed
+  here, and then the real app.js is loaded on top of stubs for the four things a
+  test machine has no business having - a websocket, a microphone, an audio
+  context and a server. Nothing in app.js knows the difference.
+
+  Time runs SPEED times faster, timers and the clock together, so the ninety
+  second answer budget takes under two seconds to expire.
+
+  The result goes in the title, where the runner reads it.
+-->
+<body>
+<script>
+const SPEED = 60;
+const results = [];
+const sent = [];        // every message the page sent to the "agent"
+let socket = null;      // the page's agent websocket
+let assessCalls = 0;
+
+// -- time ------------------------------------------------------------------------
+const realNow = performance.now.bind(performance);
+const origin = realNow();
+performance.now = () => origin + (realNow() - origin) * SPEED;
+const realTimeout = window.setTimeout.bind(window);
+const realInterval = window.setInterval.bind(window);
+window.setTimeout = (fn, ms, ...rest) => realTimeout(fn, (ms || 0) / SPEED, ...rest);
+window.setInterval = (fn, ms, ...rest) => realInterval(fn, Math.max(4, (ms || 0) / SPEED), ...rest);
+const wait = (ms) => new Promise((r) => realTimeout(r, ms / SPEED));
+
+// -- the stubs -------------------------------------------------------------------
+class FakeSocket {
+  constructor(url) {
+    this.url = url;
+    this.readyState = 1;               // OPEN: nothing here is asynchronous
+    if (String(url).includes("agents.assemblyai.com")) socket = this;
+    realTimeout(() => this.onopen && this.onopen(), 0);
+  }
+  send(data) { if (this === socket) sent.push(JSON.parse(data)); }
+  close() { this.readyState = 3; }
+}
+FakeSocket.OPEN = 1;
+window.WebSocket = FakeSocket;
+
+const realFetch = window.fetch.bind(window);
+window.fetch = async (url, options) => {
+  if (!String(url).startsWith("/api/")) return realFetch(url, options);   // the page itself
+  const body = options?.body ? JSON.parse(options.body) : null;
+  const reply = (value) => ({ ok: true, status: 200, json: async () => value });
+  if (url === "/api/interview") {
+    return reply({ role: "Tester", parts: 3, languages: [
+      { code: "en", name: "English", voice: "alba" }, { code: "fr", name: "Français", voice: "estelle" }] });
+  }
+  if (url === "/api/session") {
+    return reply({ agent_id: "agent-1", agent: "tok-a", streaming: "tok-s", language: "en" });
+  }
+  if (url === "/api/assess") {
+    assessCalls += 1;
+    return reply({ verdict: "spontaneous", instruction: "Move the interview forward.",
+                   words: (body.answer_words || []).length });
+  }
+  return reply({ id: "session-1" });
+};
+
+Object.defineProperty(navigator, "mediaDevices", {
+  configurable: true,
+  value: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) },
+});
+class FakePort { postMessage() {} }
+class FakeNode {
+  constructor() { this.port = new FakePort(); }
+  connect() {} disconnect() {}
+}
+window.AudioWorkletNode = FakeNode;
+window.AudioContext = class {
+  constructor() { this.audioWorklet = { addModule: async () => {} }; this.destination = new FakeNode(); }
+  createMediaStreamSource() { return new FakeNode(); }
+  close() {}
+};
+
+// -- assertions ------------------------------------------------------------------
+function check(name, condition, detail) {
+  results.push({ name, ok: Boolean(condition), detail: condition ? "" : (detail || "") });
+}
+const lastOfType = (type) => [...sent].reverse().find((m) => m.type === type);
+const toolResults = () => sent.filter((m) => m.type === "tool.result");
+const agent = (message) => window.handleAgent(message);
+
+// A full agent turn: it says something, then hands the floor over.
+function agentSays(text) {
+  agent({ type: "reply.started" });
+  agent({ type: "transcript.agent", text });
+  agent({ type: "reply.done", status: "completed" });
+}
+
+async function run() {
+  // The real page, with its real markup and styles.
+  const html = await (await fetch("/static/index.html")).text();
+  const parsed = new DOMParser().parseFromString(html, "text/html");
+  document.head.append(...parsed.head.querySelectorAll("style"));
+  document.body.innerHTML = parsed.body.innerHTML;   // script tags inserted this way do not run
+  await new Promise((done) => {
+    const tag = document.createElement("script");
+    tag.src = "/static/app.js";
+    tag.onload = done;
+    document.body.append(tag);
+  });
+  await wait(200 * SPEED);
+  [...document.querySelectorAll("#languages button")]
+    .find((b) => b.textContent === "English")?.click();
+
+  // 1. It opens.
+  document.getElementById("start").click();
+  await wait(200 * SPEED);
+  agent({ type: "session.ready" });
+  await wait(300 * SPEED);
+  check("the stored agent is named, never its instructions",
+    lastOfType("session.update")?.session?.agent_id === "agent-1", JSON.stringify(sent.slice(0, 2)));
+  check("it is told to open the interview itself", Boolean(lastOfType("reply.create")));
+  check("the interview screen is showing", !document.getElementById("screen-interview").hidden);
+  check("the progress mark has one tick per part",
+    document.getElementById("stage-marks").childElementCount === 3);
+
+  // 2. The hang: a cough during the assessment used to strand the tool result
+  //    forever, and the interview went silent for good.
+  agentSays("So, to start: what did you do yesterday?");
+  agent({ type: "input.speech.started" });
+  agent({ type: "transcript.user", text: "I got up early and went to the gym." });
+  agent({ type: "input.speech.stopped" });
+  agent({ type: "tool.call", name: "assess_answer", call_id: "call-1", arguments: { topic_id: "warmup", claim: "gym" } });
+  agent({ type: "input.speech.started" });      // the cough, mid-assessment
+  await wait(4000);
+  check("the tool result is sent even when the candidate makes a noise mid-assessment",
+    toolResults().some((m) => m.call_id === "call-1"),
+    `sent: ${JSON.stringify(sent.map((m) => m.type))}`);
+  check("the assessment ran once for that answer", assessCalls === 1, `ran ${assessCalls} times`);
+
+  // 3. The question on screen is not also repeated in the history below it.
+  agentSays("You said you went to the gym - what did you do there?");
+  await wait(100);
+  const said = document.getElementById("said").textContent;
+  const history = document.getElementById("transcript").textContent;
+  check("the live question is not repeated in the history",
+    said.includes("what did you do there") && !history.includes("what did you do there"),
+    `said=${said} history=${history}`);
+  check("the earlier exchange is in the history",
+    history.includes("what did you do yesterday") && history.includes("went to the gym"));
+
+  // 4. Nobody answers: after five seconds the interview moves itself on.
+  const before = sent.length;
+  await wait(6000);
+  const nudge = sent.slice(before).find((m) => m.type === "reply.create");
+  check("five seconds of silence moves the interview on",
+    nudge && nudge.instructions.includes("said nothing for five seconds"),
+    JSON.stringify(sent.slice(before).map((m) => m.type)));
+
+  // 5. An answer that never ends: the granted time runs out and the turn is taken.
+  agentSays("Tell me about a project.");
+  agent({ type: "input.speech.started" });      // they are talking, so silence never fires
+  const mark = sent.length;
+  await wait(8000);
+  check("speaking cancels the silence clock",
+    !sent.slice(mark).some((m) => m.type === "reply.create" && m.instructions.includes("five seconds")));
+  await wait(95000);
+  const expiry = sent.slice(mark).find((m) => m.type === "reply.create" && m.instructions.includes("as long as one answer gets"));
+  check("the answer budget runs out and the interviewer takes the turn", Boolean(expiry));
+
+  // 6. The clock is shown while the floor is the candidate's, and counts down.
+  agentSays("Last one: what would you change?");
+  await wait(1200);
+  const clock = document.getElementById("clock");
+  const shown = clock.hidden === false && /\d/.test(document.getElementById("clock-time").textContent);
+  check("the candidate can see how long the answer may run", shown,
+    `hidden=${clock.hidden} text=${document.getElementById("clock-time").textContent}`);
+
+  const failed = results.filter((r) => !r.ok);
+  document.title = failed.length
+    ? `FAIL ${failed.length}/${results.length}`
+    : `PASS ${results.length}/${results.length}`;
+  const report = document.createElement("pre");
+  report.id = "report";
+  report.textContent = results.map((r) => `${r.ok ? "ok  " : "FAIL"}  ${r.name}${r.detail ? "\n        " + r.detail : ""}`).join("\n");
+  document.documentElement.append(report);
+}
+
+run().catch((error) => {
+  document.title = "ERROR";
+  const report = document.createElement("pre");
+  report.id = "report";
+  report.textContent = `${error.message}\n${error.stack}`;
+  document.documentElement.append(report);
+});
+</script>

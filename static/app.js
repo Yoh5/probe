@@ -22,13 +22,20 @@ const STT_URL = "wss://streaming.assemblyai.com/v3/ws";
 const RATE = 24000;
 // How long to wait for the transcription connection to finish the last words of
 // an answer before assessing it. The agent holds its turn meanwhile.
-const WORDS_SETTLE_MS = 1200;
+const WORDS_SETTLE_MS = 700;
 // How long the interviewer sits in a silence before moving the interview on. Its
 // own turn detection covers the pauses inside an answer; this covers the one
 // thing turn detection cannot see - a candidate who never starts.
 const SILENCE_MS = 5000;
 // Before that, the page says out loud that thinking is allowed.
 const PATIENCE_MS = 2000;
+// How long the candidate has for one answer, and when the clock starts to press.
+// A spoken answer that runs past ninety seconds has stopped being an answer.
+const ANSWER_MS = 90000;
+const URGENT_MS = 15000;
+// The agent is blocked until it has its tool result. Sending it once the reply
+// is done is the polite order; waiting for that forever is a hang.
+const RESULT_GRACE_MS = 900;
 
 const COPY = {
   en: { title: "A conversation, not a form.", lede: "Five minutes, out loud. The interviewer listens, answers, and asks what comes next from what you say.",
@@ -36,46 +43,47 @@ const COPY = {
         terms2: "The transcript is kept and used to prepare a report for the recruiter. It suggests what to ask next; it never decides anything on its own.",
         start: "I agree, start the interview", hint: "Headphones keep the interviewer's voice out of your microphone.",
         listening: "Listening", thinking: "Take your time", speaking: "The interviewer is speaking", connecting: "Connecting", you: "You", them: "Interviewer",
-        finish: "End the interview", saving: "Saving the interview", savingLede: "A few seconds. Keep this page open.",
+        finish: "End the interview", budget: "to answer", stage: "Part {n} of {total}", saving: "Saving the interview", savingLede: "A few seconds. Keep this page open.",
         done: "Thank you. That's everything.", doneLede: "The recruiter has your interview and will be in touch.", retry: "Try again" },
   fr: { title: "Une conversation, pas un formulaire.", lede: "Cinq minutes, à voix haute. L'entretien écoute, répond, et enchaîne à partir de ce que vous dites.",
         terms1: "<b>Votre voix est transcrite au fil de la parole</b> par AssemblyAI. L'audio n'est pas conservé.",
         terms2: "La transcription est conservée et sert à préparer un compte rendu pour le recruteur. Elle suggère quoi demander ensuite ; elle ne décide jamais rien seule.",
         start: "J'accepte, commencer l'entretien", hint: "Un casque évite que la voix de l'entretien entre dans votre micro.",
         listening: "À vous", thinking: "Prenez votre temps", speaking: "L'entretien parle", connecting: "Connexion", you: "Vous", them: "Entretien",
-        finish: "Terminer l'entretien", saving: "Enregistrement de l'entretien", savingLede: "Quelques secondes. Gardez cette page ouverte.",
+        finish: "Terminer l'entretien", budget: "pour répondre", stage: "Partie {n} sur {total}", saving: "Enregistrement de l'entretien", savingLede: "Quelques secondes. Gardez cette page ouverte.",
         done: "Merci, c'est terminé.", doneLede: "Le recruteur a votre entretien et vous recontactera.", retry: "Réessayer" },
   es: { title: "Una conversación, no un formulario.", lede: "Cinco minutos, en voz alta. La entrevista escucha, responde y sigue con lo que usted dice.",
         terms1: "<b>Su voz se transcribe mientras habla</b> con AssemblyAI. El audio no se conserva.",
         terms2: "La transcripción se conserva y sirve para preparar un informe para el reclutador. Sugiere qué preguntar después; nunca decide nada por sí sola.",
         start: "Acepto, empezar la entrevista", hint: "Los auriculares evitan que la voz de la entrevista entre en su micrófono.",
         listening: "Le escucho", thinking: "Tómese su tiempo", speaking: "La entrevista habla", connecting: "Conectando", you: "Usted", them: "Entrevista",
-        finish: "Terminar la entrevista", saving: "Guardando la entrevista", savingLede: "Unos segundos. Mantenga esta página abierta.",
+        finish: "Terminar la entrevista", budget: "para responder", stage: "Parte {n} de {total}", saving: "Guardando la entrevista", savingLede: "Unos segundos. Mantenga esta página abierta.",
         done: "Gracias, eso es todo.", doneLede: "El reclutador tiene su entrevista y se pondrá en contacto.", retry: "Reintentar" },
   de: { title: "Ein Gespräch, kein Formular.", lede: "Fünf Minuten, laut gesprochen. Das Gespräch hört zu, antwortet und knüpft an Ihre Worte an.",
         terms1: "<b>Ihre Stimme wird beim Sprechen transkribiert</b> von AssemblyAI. Das Audio wird nicht gespeichert.",
         terms2: "Das Transkript wird gespeichert und dient einem Bericht für die Recruiterin oder den Recruiter. Es schlägt vor, was als Nächstes zu fragen ist; es entscheidet nie allein.",
         start: "Einverstanden, Gespräch starten", hint: "Kopfhörer halten die Stimme des Gesprächs aus Ihrem Mikrofon.",
         listening: "Sie sind dran", thinking: "Lassen Sie sich Zeit", speaking: "Das Gespräch spricht", connecting: "Verbindung", you: "Sie", them: "Gespräch",
-        finish: "Gespräch beenden", saving: "Gespräch wird gespeichert", savingLede: "Ein paar Sekunden. Lassen Sie die Seite offen.",
+        finish: "Gespräch beenden", budget: "zum Antworten", stage: "Teil {n} von {total}", saving: "Gespräch wird gespeichert", savingLede: "Ein paar Sekunden. Lassen Sie die Seite offen.",
         done: "Danke, das war alles.", doneLede: "Das Gespräch liegt vor und man meldet sich bei Ihnen.", retry: "Erneut versuchen" },
   it: { title: "Una conversazione, non un modulo.", lede: "Cinque minuti, ad alta voce. Il colloquio ascolta, risponde e prosegue da ciò che dice.",
         terms1: "<b>La sua voce viene trascritta mentre parla</b> da AssemblyAI. L'audio non viene conservato.",
         terms2: "La trascrizione viene conservata e serve a preparare un resoconto per il selezionatore. Suggerisce cosa chiedere dopo; non decide mai nulla da sola.",
         start: "Accetto, iniziare il colloquio", hint: "Le cuffie tengono la voce del colloquio fuori dal microfono.",
         listening: "A lei", thinking: "Con calma", speaking: "Il colloquio parla", connecting: "Connessione", you: "Lei", them: "Colloquio",
-        finish: "Terminare il colloquio", saving: "Salvataggio del colloquio", savingLede: "Pochi secondi. Tenga aperta la pagina.",
+        finish: "Terminare il colloquio", budget: "per rispondere", stage: "Parte {n} di {total}", saving: "Salvataggio del colloquio", savingLede: "Pochi secondi. Tenga aperta la pagina.",
         done: "Grazie, è tutto.", doneLede: "Il selezionatore ha il colloquio e la ricontatterà.", retry: "Riprovare" },
   pt: { title: "Uma conversa, não um formulário.", lede: "Cinco minutos, em voz alta. A entrevista ouve, responde e continua a partir do que você diz.",
         terms1: "<b>A sua voz é transcrita enquanto fala</b> pela AssemblyAI. O áudio não é guardado.",
         terms2: "A transcrição é guardada e serve para preparar um relatório para o recrutador. Sugere o que perguntar a seguir; nunca decide nada sozinha.",
         start: "Aceito, começar a entrevista", hint: "Auscultadores evitam que a voz da entrevista entre no seu microfone.",
         listening: "É consigo", thinking: "Não tenha pressa", speaking: "A entrevista fala", connecting: "A ligar", you: "Você", them: "Entrevista",
-        finish: "Terminar a entrevista", saving: "A guardar a entrevista", savingLede: "Alguns segundos. Mantenha esta página aberta.",
+        finish: "Terminar a entrevista", budget: "para responder", stage: "Parte {n} de {total}", saving: "A guardar a entrevista", savingLede: "Alguns segundos. Mantenha esta página aberta.",
         done: "Obrigado, é tudo.", doneLede: "O recrutador tem a sua entrevista e entrará em contacto.", retry: "Tentar de novo" },
 };
 
 let languages = [];
+let parts = 0;             // how many parts the interview has, warm-up included
 let language = "en";
 let agentWs, sttWs, audioContext, playerContext, player, stream;
 let samplesSent = 0;
@@ -86,6 +94,9 @@ let baselineWords = null;  // the warm-up answer: what later answers are compare
 let turns = [];
 let assessments = [];
 let pendingResults = [];
+let flushTimer = null;
+let assessing = null;      // the assessment of the current answer, already under way
+const seen = new Set();    // topic ids the interview has reached, for the progress mark
 let lastEvent = null;
 let agentSpoke = false;   // did the last reply actually say anything out loud?
 let finished = false;
@@ -125,7 +136,7 @@ function drawLine(canvas) {
 
   context.lineWidth = 3;
   context.lineCap = "round";
-  context.strokeStyle = speaking ? "#E9B44C" : "#74D3AE";
+  context.strokeStyle = speaking ? "#5B2A4E" : "#125C55";
   for (let i = 0; i < levels.length; i++) {
     const x = i * step + step / 2;
     // Idle, the line breathes so the page looks live before anyone speaks;
@@ -140,7 +151,7 @@ function drawLine(canvas) {
     context.lineTo(x, middle + size);
     context.stroke();
   }
-  context.strokeStyle = "rgba(242,239,230,.18)";
+  context.strokeStyle = "rgba(27,24,21,.16)";
   context.lineWidth = 1;
   context.beginPath();
   context.moveTo(0, middle);
@@ -148,12 +159,21 @@ function drawLine(canvas) {
   context.stroke();
 }
 
+let drawing = false;
+
 function animate() {
+  const canvas = $("line-live");
+  if (!canvas?.offsetParent) { drawing = false; return; }   // nothing on screen to draw on
   if (!still) phase += speaking ? 0.14 : 0.03;
-  drawLine($("line-welcome")?.offsetParent ? $("line-welcome") : $("line-live"));
+  drawLine(canvas);
   requestAnimationFrame(animate);
 }
-requestAnimationFrame(animate);
+
+function startDrawing() {
+  if (drawing) return;
+  drawing = true;
+  requestAnimationFrame(animate);
+}
 
 function pushLevel(peak) {
   levels.push(Math.min(1, peak * 2.2));
@@ -177,7 +197,9 @@ function applyCopy() {
   $("t-done").textContent = text.done;
   $("t-done-lede").textContent = text.doneLede;
   $("retry").textContent = text.retry;
+  $("clock-label").textContent = text.budget;
   $("state-label").textContent = text.connecting;
+  renderStage();
 }
 
 function renderLanguages() {
@@ -203,6 +225,7 @@ async function loadInterview() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const brief = await response.json();
     languages = brief.languages;
+    parts = brief.parts || 0;
     const preferred = (navigator.language || "en").slice(0, 2);
     language = languages.some((l) => l.code === preferred) ? preferred : languages[0].code;
   } catch (error) {
@@ -317,55 +340,104 @@ async function startAudio() {
 
 function base64(bytes) {
   let binary = "";
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  for (let i = 0; i < bytes.length; i += 8192) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+  }
   return btoa(binary);
 }
 
 function playAgentAudio(base64Audio) {
   const binary = atob(base64Audio);
-  const pcm = new Int16Array(binary.length / 2);
-  for (let i = 0; i < pcm.length; i++) {
-    pcm[i] = (binary.charCodeAt(i * 2 + 1) << 8) | binary.charCodeAt(i * 2);
+  const floats = new Float32Array(binary.length / 2);
+  for (let i = 0; i < floats.length; i++) {
+    const sample = (binary.charCodeAt(i * 2 + 1) << 8) | binary.charCodeAt(i * 2);
+    floats[i] = (sample >= 0x8000 ? sample - 0x10000 : sample) / 0x8000;
   }
-  const floats = new Float32Array(pcm.length);
-  for (let i = 0; i < pcm.length; i++) floats[i] = pcm[i] / 0x8000;
   player?.port.postMessage(floats);
 }
 
-// -- silence -----------------------------------------------------------------------
+// -- whose turn it is -------------------------------------------------------------
 //
-// The interviewer waits the whole time it gave. Nothing here hurries the
-// candidate: the page says to take their time, and only after five seconds
-// without a single word does the interview move itself on.
+// Two clocks run while the floor belongs to the candidate, and both of them are
+// honest about what they are for. The budget is shown, so nobody has to guess how
+// long an answer may be. The silence is not shown, because pointing at it would
+// be the opposite of patience: five seconds with nothing said at all, and the
+// interview moves itself on. Speaking cancels the silence and never the budget.
 
 let silenceTimer = null;
 let patienceTimer = null;
+let budgetTimer = null;
+let clockTicker = null;
+let budgetEndsAt = 0;
 let silences = 0;      // consecutive silences: two in a row and nobody is there
 
-function holdSilence() {
+function holdFloor() {
   clearTimeout(silenceTimer);
   clearTimeout(patienceTimer);
-  silenceTimer = patienceTimer = null;
+  clearTimeout(budgetTimer);
+  clearInterval(clockTicker);
+  silenceTimer = patienceTimer = budgetTimer = clockTicker = null;
+  $("clock")?.setAttribute("hidden", "");
 }
 
 function giveTheFloor() {
-  holdSilence();
+  holdFloor();
+  budgetEndsAt = performance.now() + ANSWER_MS;
+  $("clock")?.removeAttribute("hidden");
+  renderClock();
+  clockTicker = setInterval(renderClock, 500);
   patienceTimer = setTimeout(() => {
     if (!speaking) $("state-label").textContent = copy().thinking;
   }, PATIENCE_MS);
-  silenceTimer = setTimeout(moveOn, SILENCE_MS);
+  silenceTimer = setTimeout(nobodySpoke, SILENCE_MS);
+  budgetTimer = setTimeout(timeIsUp, ANSWER_MS);
 }
 
-function moveOn() {
-  silenceTimer = null;
+function renderStage() {
+  if (!parts || !$("stage")) return;
+  const done = Math.min(seen.size, parts);
+  $("stage").textContent = copy().stage.replace("{n}", String(Math.max(1, done))).replace("{total}", String(parts));
+  const marks = $("stage-marks");
+  if (!marks) return;
+  if (marks.childElementCount !== parts) {
+    marks.replaceChildren();
+    for (let i = 0; i < parts; i++) marks.append(document.createElement("i"));
+  }
+  [...marks.children].forEach((mark, i) => mark.classList.toggle("done", i < done));
+}
+
+function renderClock() {
+  const left = Math.max(0, budgetEndsAt - performance.now());
+  const seconds = Math.ceil(left / 1000);
+  const box = $("clock");
+  if (!box) return;
+  $("clock-time").textContent = seconds >= 60
+    ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
+    : `${seconds}s`;
+  box.classList.toggle("urgent", left <= URGENT_MS);
+}
+
+function nudge(instructions) {
   if (finished || agentWs?.readyState !== WebSocket.OPEN) return;
+  holdFloor();
+  agentWs.send(JSON.stringify({ type: "reply.create", instructions }));
+}
+
+function nobodySpoke() {
+  silenceTimer = null;
   silences += 1;
-  const instructions = silences >= 2
+  nudge(silences >= 2
     ? "The candidate has been silent twice over and may have left. Thank them in one short sentence, "
       + "say the interview ends here, and call end_interview."
     : "The candidate has said nothing for five seconds. Do not repeat the question and do not mention "
-      + "the silence. Ask one shorter, simpler question instead.";
-  agentWs.send(JSON.stringify({ type: "reply.create", instructions }));
+      + "the silence. Ask one shorter, simpler question instead.");
+}
+
+function timeIsUp() {
+  budgetTimer = null;
+  nudge("The candidate has been answering for a minute and a half, which is as long as one answer gets. "
+    + "Take the turn now. Acknowledge them in at most four words, do not mention the time, and ask your "
+    + "next question built on what they have just said.");
 }
 
 function setSpeaking(on) {
@@ -383,6 +455,8 @@ function handleAgent(message) {
       // translated. It opens the interview itself, in the chosen language.
       startAudio().then(() => {
         show("interview");
+        renderStage();
+        startDrawing();
         agentWs.send(JSON.stringify({ type: "reply.create",
           instructions: "Open the interview now: greet in one short sentence, then ask the warm-up question." }));
       });
@@ -400,12 +474,20 @@ function handleAgent(message) {
     case "input.speech.started":
       player?.port.postMessage("flush");   // barge-in: stop the half-spoken sentence
       lastEvent = "input.speech.started";
-      holdSilence();        // they are speaking: the clock has no business running
+      clearTimeout(silenceTimer);   // they are speaking; the budget keeps running
+      silenceTimer = null;
       silences = 0;
+      break;
+    case "input.speech.stopped":
+      // Start measuring the answer now rather than when the agent asks for it:
+      // by the time the tool call arrives the verdict is already waiting, and the
+      // pause between an answer and the next question is a beat, not a wait.
+      lastEvent = "input.speech.stopped";
+      assessmentFor(answerStartMs);
       break;
     case "reply.started":
       lastEvent = "reply.started";
-      holdSilence();
+      holdFloor();
       break;
     case "reply.done":
       lastEvent = "reply.done";
@@ -417,8 +499,7 @@ function handleAgent(message) {
         giveTheFloor();     // the floor is theirs, and it stays theirs for five seconds
       }
       agentSpoke = false;
-      if (message.status === "interrupted") pendingResults = [];
-      else flushResults();
+      flushResults();
       break;
     case "tool.call":
       handleTool(message);
@@ -440,11 +521,36 @@ async function handleTool(call) {
   if (call.name !== "assess_answer") return queueResult(call.call_id, { error: "unknown tool" });
 
   const topic = String(call.arguments?.topic_id ?? "warmup");
+  const { warmup, answerWords, verdict } = await assessmentFor(answerStartMs);
+  if (warmup && answerWords.length) baselineWords = answerWords;
+  seen.add(topic);
+  renderStage();
+  assessments.push({ topic_id: topic, claim: call.arguments?.claim ?? "", words: answerWords, ...verdict });
+  queueResult(call.call_id, { instruction: verdict.instruction, verdict: verdict.verdict });
+}
+
+// The assessment of one answer, computed once. It starts the moment the candidate
+// stops speaking, so by the time the agent asks for it the verdict is usually
+// already waiting: the pause between an answer and the next question is a beat
+// rather than a wait.
+function assessmentFor(start) {
+  if (assessing && assessing.start === start) {
+    return assessing.promise.then((done) => {
+      // The pause that started it was a thinking pause and the candidate carried
+      // on: that assessment was made on half an answer, so it is made again.
+      if (words.length === done.seen) return done;
+      assessing = { start, promise: assessAnswer(start) };
+      return assessing.promise;
+    });
+  }
+  assessing = { start, promise: assessAnswer(start) };
+  return assessing.promise;
+}
+
+async function assessAnswer(start) {
   const warmup = !baselineWords;
-  const start = answerStartMs;
   await settle();
   const answerWords = words.filter((w) => w.start >= start);
-
   let verdict;
   try {
     const response = await fetch("/api/assess", {
@@ -455,12 +561,16 @@ async function handleTool(call) {
     verdict = await response.json();
     if (!response.ok) throw new Error(verdict.detail || `HTTP ${response.status}`);
   } catch (error) {
-    // A failed assessment must not derail the interview: the agent carries on.
-    verdict = { verdict: "not_measured", instruction: "Ask your next question.", error: error.message };
+    // A failed assessment must not derail the interview: the agent carries on,
+    // and it still carries on from the candidate's own words.
+    verdict = {
+      verdict: "not_measured",
+      instruction: "Ask one short question built on what the candidate just said, quoting a phrase of "
+        + "theirs word for word.",
+      error: error.message,
+    };
   }
-  if (warmup && answerWords.length) baselineWords = answerWords;
-  assessments.push({ topic_id: topic, claim: call.arguments?.claim ?? "", words: answerWords, ...verdict });
-  queueResult(call.call_id, { instruction: verdict.instruction, verdict: verdict.verdict });
+  return { warmup, answerWords, verdict, seen: words.length };
 }
 
 // Give the transcription connection a moment to finalise the last words of the
@@ -469,8 +579,8 @@ function settle() {
   return new Promise((resolve) => {
     const deadline = performance.now() + WORDS_SETTLE_MS;
     const tick = () => {
-      if (performance.now() - lastWordAt > 400 || performance.now() > deadline) resolve();
-      else setTimeout(tick, 100);
+      if (performance.now() - lastWordAt > 250 || performance.now() > deadline) resolve();
+      else setTimeout(tick, 60);
     };
     tick();
   });
@@ -479,10 +589,21 @@ function settle() {
 function queueResult(callId, result) {
   pendingResults.push({ call_id: callId, result });
   flushResults();
+  // This is the interview's one deadlock. The agent will not speak again until it
+  // has the result of the tool it called, and the result was only ever sent when
+  // "reply.done" happened to be the last event. One cough from the candidate
+  // during the assessment made "input.speech.started" the last event instead, and
+  // the reply that would have cleared it could never arrive. The order is still
+  // preferred; it is no longer waited on indefinitely.
+  clearTimeout(flushTimer);
+  flushTimer = setTimeout(() => flushResults(true), RESULT_GRACE_MS);
 }
 
-function flushResults() {
-  if (lastEvent !== "reply.done" || !pendingResults.length || agentWs?.readyState !== WebSocket.OPEN) return;
+function flushResults(force = false) {
+  if (!pendingResults.length || agentWs?.readyState !== WebSocket.OPEN) return;
+  if (!force && lastEvent !== "reply.done") return;
+  clearTimeout(flushTimer);
+  flushTimer = null;
   for (const pending of pendingResults) {
     agentWs.send(JSON.stringify({ type: "tool.result", call_id: pending.call_id, result: JSON.stringify(pending.result) }));
   }
@@ -519,7 +640,7 @@ function writeTurn(role, text) {
 async function finish() {
   if (finished) return;
   finished = true;
-  holdSilence();
+  holdFloor();
   show("saving");
   stream?.getTracks().forEach((track) => track.stop());
   setTimeout(() => agentWs?.readyState === WebSocket.OPEN && agentWs.send(JSON.stringify({ type: "session.end" })), 200);
