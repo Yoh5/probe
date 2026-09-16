@@ -81,6 +81,7 @@ let turns = [];
 let assessments = [];
 let pendingResults = [];
 let lastEvent = null;
+let agentSpoke = false;   // did the last reply actually say anything out loud?
 let finished = false;
 let failed = false;
 
@@ -348,6 +349,7 @@ function handleAgent(message) {
       playAgentAudio(message.data);
       break;
     case "transcript.agent":
+      agentSpoke = Boolean(message.text);
       addTurn("them", message.text);
       break;
     case "transcript.user":
@@ -363,7 +365,10 @@ function handleAgent(message) {
     case "reply.done":
       lastEvent = "reply.done";
       // The interviewer has stopped: whatever is said from now on is the answer.
-      answerStartMs = clockMs();
+      // A reply that said nothing out loud - the silent one that follows a tool
+      // result - must not cut the answer in two.
+      if (agentSpoke) answerStartMs = clockMs();
+      agentSpoke = false;
       if (message.status === "interrupted") pendingResults = [];
       else flushResults();
       break;

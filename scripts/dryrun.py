@@ -100,6 +100,7 @@ class DryRun:
         self.last_event = None
         self.spoken = 0
         self.speaking: asyncio.Task | None = None
+        self.agent_spoke = False
         self.done = asyncio.Event()
 
     @property
@@ -148,6 +149,7 @@ class DryRun:
             if kind == "reply.audio":
                 continue
             if kind == "transcript.agent":
+                self.agent_spoke = bool(message.get("text"))
                 print(f"\ninterviewer: {message.get('text')}")
             elif kind == "transcript.user":
                 print(f"candidate  : {message.get('text')}")
@@ -162,7 +164,9 @@ class DryRun:
                 await self.tool(message)
             if kind == "reply.done":
                 self.last_event = kind
-                self.answer_start_ms = self.clock_ms
+                if self.agent_spoke:
+                    self.answer_start_ms = self.clock_ms
+                self.agent_spoke = False
                 await self.flush()
                 if self.spoken < len(self.answers) and (self.speaking is None or self.speaking.done()):
                     # In the background: this loop must keep reading, or the
