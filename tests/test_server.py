@@ -1,4 +1,5 @@
 """The routes: the two tokens, the verdict, and saved sessions."""
+import json
 import sys
 from pathlib import Path
 
@@ -20,37 +21,92 @@ def client(tmp_path, monkeypatch):
 
 @pytest.fixture
 def minted(monkeypatch):
-    """Both token calls answered, with the request recorded."""
-    seen = []
+    """Both token calls and the agent creation answered, with the requests recorded."""
+    seen = {"tokens": [], "agents": []}
 
-    async def fake(client, url, headers, params):
-        seen.append({"url": url, "headers": headers, "params": params})
+    async def fake_token(client, url, headers, params):
+        seen["tokens"].append({"url": url, "headers": headers, "params": params})
         return f"token-for-{'agent' if 'agents' in url else 'streaming'}"
 
-    monkeypatch.setattr(server, "_token", fake)
+    class FakeResponse:
+        status_code = 201
+
+        def __init__(self, payload):
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def post(self, url, headers=None, json=None):
+            seen["agents"].append({"url": url, "headers": headers, "payload": json})
+            return FakeResponse({"id": f"agent-{json['input']['language_codes'][0]}"})
+
+    monkeypatch.setattr(server, "_token", fake_token)
+    monkeypatch.setattr(server.httpx, "AsyncClient", FakeClient)
+    monkeypatch.setattr(server, "AGENTS", {})
     return seen
 
 
-# -- tokens ---------------------------------------------------------------------------
+# -- starting a session ---------------------------------------------------------------
 
-def test_the_browser_gets_one_token_per_connection(client, minted):
-    body = client.post("/api/tokens").json()
-    assert body["agent"] == "token-for-agent" and body["streaming"] == "token-for-streaming"
-    assert body["ttl"] == server.TOKEN_TTL_SECONDS
+def test_the_browser_gets_an_agent_id_and_two_tokens(client, minted):
+    body = client.post("/api/session", json={"language": "en"}).json()
+    assert body == {"agent_id": "agent-en", "agent": "token-for-agent",
+                    "streaming": "token-for-streaming", "language": "en",
+                    "ttl": server.TOKEN_TTL_SECONDS}
 
 
 def test_the_long_lived_key_never_reaches_the_browser(client, minted):
-    text = client.post("/api/tokens").text
+    text = client.post("/api/session", json={"language": "en"}).text
     assert "long-lived-secret" not in text
     # The agent endpoint wants a Bearer prefix, the streaming one wants the bare key.
-    agent, streaming = minted
+    agent, streaming = minted["tokens"]
     assert agent["headers"]["Authorization"] == "Bearer long-lived-secret"
     assert streaming["headers"]["Authorization"] == "long-lived-secret"
 
 
+def test_what_the_interviewer_is_told_stays_on_the_server(client, minted):
+    """The prompt names what to probe. In the page it would be readable by the
+    candidate, so it is stored at AssemblyAI and only its id is handed out."""
+    response = client.post("/api/session", json={"language": "en"})
+    payload = minted["agents"][0]["payload"]
+    assert "assess_answer" in json.dumps(payload["tools"])
+    assert "quote their own words" in payload["system_prompt"]
+    assert payload["system_prompt"] not in response.text
+
+
+def test_each_language_gets_its_own_voice_and_is_created_once(client, minted):
+    assert client.post("/api/session", json={"language": "fr"}).json()["agent_id"] == "agent-fr"
+    client.post("/api/session", json={"language": "fr"})
+    client.post("/api/session", json={"language": "en"})
+    created = {call["payload"]["input"]["language_codes"][0]: call["payload"]["voice"]["voice_id"]
+               for call in minted["agents"]}
+    assert created == {"fr": "estelle", "en": "alba"}
+    assert len(minted["agents"]) == 2, "the stored agent is reused, not recreated per interview"
+
+
+def test_a_language_nobody_can_speak_back_is_refused(client, minted):
+    r = client.post("/api/session", json={"language": "ar"})
+    assert r.status_code == 422 and "ar" in r.json()["detail"]
+
+
+def test_no_language_means_the_first_one_offered(client, minted):
+    assert client.post("/api/session", json={}).json()["language"] == "en"
+
+
 def test_a_missing_key_is_named(client, monkeypatch):
     monkeypatch.delenv("ASSEMBLYAI_API_KEY", raising=False)
-    r = client.post("/api/tokens")
+    r = client.post("/api/session", json={"language": "en"})
     assert r.status_code == 503 and "ASSEMBLYAI_API_KEY" in r.json()["detail"]
 
 
@@ -115,6 +171,8 @@ def test_an_oversized_session_is_refused(client, monkeypatch):
     assert client.post("/api/sessions", json={"turns": [{"text": "x" * 200}]}).status_code == 413
 
 
-def test_the_questions_are_served_for_the_page(client):
-    body = client.get("/api/questions").json()
-    assert body["questions"][0]["kind"] == "baseline"
+def test_the_page_is_told_the_role_and_the_languages_only(client):
+    body = client.get("/api/interview").json()
+    assert body["role"] and [l["code"] for l in body["languages"]][:2] == ["en", "fr"]
+    # What the interviewer is told to look for is not the candidate's business.
+    assert "topics" not in body and "goal" not in json.dumps(body)

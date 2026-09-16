@@ -34,7 +34,7 @@ from fastapi.staticfiles import StaticFiles
 
 import assess
 import detector
-from questions import load_questions
+import interview
 
 ROOT = Path(__file__).parent
 load_dotenv(ROOT / ".env")
@@ -43,6 +43,7 @@ SESSIONS_DIR = ROOT / "sessions"
 MAX_SESSION_BYTES = 4_000_000
 SESSION_ID = re.compile(r"^\d{8}T\d{6}Z-[0-9a-f]{8}$")
 
+AGENTS_URL = "https://agents.assemblyai.com/v1/agents"
 AGENT_TOKEN_URL = "https://agents.assemblyai.com/v1/token"
 STREAMING_TOKEN_URL = "https://streaming.assemblyai.com/v3/token"
 # Long enough to open both sockets, short enough that a token lifted from the
@@ -50,8 +51,13 @@ STREAMING_TOKEN_URL = "https://streaming.assemblyai.com/v3/token"
 TOKEN_TTL_SECONDS = 120
 MAX_SESSION_SECONDS = 1800
 
-QUESTIONS = load_questions(Path(os.environ.get("PROBE_QUESTIONS", ROOT / "questions.json")))
+BRIEF = interview.load(Path(os.environ.get("PROBE_INTERVIEW", ROOT / "interview.json")))
 MODEL = detector.load()
+
+# One stored agent per language, created on first use and kept for the life of the
+# process. Storing it at AssemblyAI keeps the prompt - what the interviewer is told
+# to probe - out of the candidate's browser, where it would be readable.
+AGENTS: dict[str, str] = {}
 
 
 def tls_context():
@@ -77,9 +83,10 @@ def index() -> FileResponse:
     return FileResponse(ROOT / "static" / "index.html")
 
 
-@app.get("/api/questions")
-def questions() -> dict:
-    return {"questions": QUESTIONS}
+@app.get("/api/interview")
+def brief() -> dict:
+    """What the page may show: the role and the languages on offer, nothing more."""
+    return {"role": BRIEF["role"], "languages": BRIEF["languages"]}
 
 
 async def _token(client: httpx.AsyncClient, url: str, headers: dict, params: dict) -> str:
@@ -97,19 +104,89 @@ async def _token(client: httpx.AsyncClient, url: str, headers: dict, params: dic
     return token
 
 
-@app.post("/api/tokens")
-async def tokens() -> dict:
-    """One token for the agent connection, one for the transcription connection."""
+TOOLS = [
+    {
+        "name": "assess_answer",
+        "description": "Call this after every single candidate answer, before you say anything at all - "
+                       "including before repeating or rephrasing a question. It returns the instruction "
+                       "you must follow next. Never speak twice in a row without calling it.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "topic_id": {"type": "string", "description": "The topic they were answering, or 'warmup'"},
+                "claim": {"type": "string", "description": "One line: what the candidate claimed"},
+            },
+            "required": ["topic_id", "claim"],
+        },
+        "execution_mode": "interactive",
+        "timeout_seconds": 20,
+    },
+    {
+        "name": "end_interview",
+        "description": "Call this once the last topic is done and you have thanked the candidate.",
+        "parameters": {"type": "object", "properties": {}},
+        "execution_mode": "interactive",
+        "timeout_seconds": 10,
+    },
+]
+
+
+async def _agent_id(client: httpx.AsyncClient, key: str, language: str) -> str:
+    """The stored agent for this language, created once."""
+    if language in AGENTS:
+        return AGENTS[language]
+    payload = {
+        "name": f"Probe interviewer ({language})",
+        "system_prompt": interview.system_prompt(BRIEF, language),
+        "voice": {"voice_id": interview.voice_for(language, BRIEF)},
+        "tools": TOOLS,
+        "input": {
+            # An interview answer has thinking pauses in it. Ending the turn on a
+            # short silence would cut the candidate off mid-thought.
+            "turn_detection": {"min_silence": 1200, "max_silence": 4000, "interrupt_response": True},
+            "language_codes": [language],
+        },
+    }
+    try:
+        response = await client.post(AGENTS_URL, headers={"Authorization": key}, json=payload)
+    except httpx.HTTPError as error:
+        raise HTTPException(502, f"AssemblyAI unreachable: {type(error).__name__}")
+    if response.status_code >= 400:
+        raise HTTPException(502, f"AssemblyAI refused the interviewer ({response.status_code})")
+    agent_id = response.json().get("id")
+    if not agent_id:
+        raise HTTPException(502, "AssemblyAI answered without an agent id")
+    AGENTS[language] = agent_id
+    return agent_id
+
+
+@app.post("/api/session")
+async def session(request: Request) -> dict:
+    """Everything the page needs to open both connections, and nothing else.
+
+    The interviewer itself - its prompt, its tools, its voice - is stored at
+    AssemblyAI under an id. The browser gets the id and two single-use tokens.
+    """
     key = os.environ.get("ASSEMBLYAI_API_KEY", "")
     if not key:
         raise HTTPException(503, "ASSEMBLYAI_API_KEY is not set on the server")
-    async with httpx.AsyncClient(timeout=15, verify=tls_context()) as client:
+    try:
+        body = await request.json()
+    except ValueError:
+        body = {}
+    language = (body or {}).get("language", BRIEF["languages"][0]["code"])
+    if language not in {offered["code"] for offered in BRIEF["languages"]}:
+        raise HTTPException(422, f"this interview is not offered in {language}")
+
+    async with httpx.AsyncClient(timeout=20, verify=tls_context()) as client:
+        agent_id = await _agent_id(client, key, language)
         agent = await _token(client, AGENT_TOKEN_URL, {"Authorization": f"Bearer {key}"},
                              {"expires_in_seconds": TOKEN_TTL_SECONDS,
                               "max_session_duration_seconds": MAX_SESSION_SECONDS})
         streaming = await _token(client, STREAMING_TOKEN_URL, {"Authorization": key},
                                  {"expires_in_seconds": TOKEN_TTL_SECONDS})
-    return {"agent": agent, "streaming": streaming, "ttl": TOKEN_TTL_SECONDS}
+    return {"agent_id": agent_id, "agent": agent, "streaming": streaming,
+            "language": language, "ttl": TOKEN_TTL_SECONDS}
 
 
 @app.post("/api/assess")

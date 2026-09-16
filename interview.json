@@ -1,0 +1,27 @@
+{
+  "role": "Software engineer, first screening",
+  "warmup": "Before we start, walk me through your day yesterday, from the morning on. Take thirty seconds or so.",
+  "topics": [
+    {
+      "id": "project",
+      "goal": "A project they owned end to end: what they actually built, what broke, and one decision they made and why"
+    },
+    {
+      "id": "teamwork",
+      "goal": "A real disagreement with a teammate: what it was about, how it ended, and what they would do differently"
+    },
+    {
+      "id": "depth",
+      "goal": "How well they understand something they use every day: make them explain it in their own words and push on the edges"
+    }
+  ],
+  "max_followups": 2,
+  "languages": [
+    "en",
+    "fr",
+    "es",
+    "de",
+    "it",
+    "pt"
+  ]
+}

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import os
 import json
 import ssl
 import subprocess
@@ -33,6 +34,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 RATE = 24000
 SERVER = "http://127.0.0.1:8000"
+LANGUAGE = os.environ.get("PROBE_LANGUAGE", "en")
 CLIPS = ROOT / "scripts" / "clips"
 
 # The warm-up: speech as it comes out, hesitations and all.
@@ -48,6 +50,12 @@ READ = ("I designed and delivered an intelligent data cleaning platform as the s
         "produces validated Python scripts. The most demanding aspect was handling inconsistent "
         "delimiters and malformed encodings, which taught me defensive programming and rigorous "
         "edge case analysis.")
+
+# The answer to the follow-up: spoken, not read, which is the point. The tool
+# should leave this one alone.
+PROBED = ("Honestly, the first thing that broke was the encoding sniffing. I, uh, I assumed UTF-8 everywhere, "
+          "and then a client sent a file in Latin-1 and the whole run just, it died on the first row. "
+          "So I added a fallback that tries a few encodings and, and asks the user when it is not sure.")
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -99,8 +107,10 @@ class DryRun:
         return self.samples_sent / RATE * 1000
 
     async def run(self) -> None:
-        async with httpx.AsyncClient(timeout=20) as http:
-            tokens = (await http.post(f"{SERVER}/api/tokens")).json()
+        async with httpx.AsyncClient(timeout=30) as http:
+            tokens = (await http.post(f"{SERVER}/api/session", json={"language": LANGUAGE})).json()
+        if "agent_id" not in tokens:
+            raise SystemExit(f"the server refused a session: {tokens}")
         agent_url = f"wss://agents.assemblyai.com/v1/ws?token={tokens['agent']}"
         stt_url = (f"wss://streaming.assemblyai.com/v3/ws?token={tokens['streaming']}"
                    f"&speech_model=universal-3-5-pro&sample_rate={RATE}&encoding=pcm_s16le&format_turns=true")
@@ -109,32 +119,14 @@ class DryRun:
         async with websockets.connect(agent_url, ssl=tls(), ping_interval=None) as agent, \
                    websockets.connect(stt_url, ssl=tls(), ping_interval=None) as stt:
             self.agent, self.stt = agent, stt
-            questions = (await self.questions())
-            await agent.send(json.dumps({"type": "session.update", "session": {
-                "system_prompt": self.system_prompt(questions),
-                "greeting": f"Thanks for joining. {questions[0]['text']}",
-                "tools": TOOLS,
-                "output": {"voice": "alba"},
-                # The simulated candidate waits its turn, so barge-in is off here.
-                # The real page leaves it on: a person may interrupt.
-                "input": {"turn_detection": {"min_silence": 1200, "max_silence": 4000,
-                                             "interrupt_response": False}},
-            }}))
-            await asyncio.wait_for(asyncio.gather(self.read_agent(), self.read_stt()), 240)
-
-    async def questions(self) -> list[dict]:
-        async with httpx.AsyncClient(timeout=20) as http:
-            return (await http.get(f"{SERVER}/api/questions")).json()["questions"]
-
-    @staticmethod
-    def system_prompt(questions: list[dict]) -> str:
-        listed = "\n".join(f"{i}. {q['text']}" for i, q in enumerate(questions))
-        return ("You are conducting a short spoken job interview. Ask these questions in order:\n"
-                f"{listed}\n\n"
-                "After every candidate answer, call assess_answer with the question index and a one-line "
-                "summary of their main claim, and wait for the result. Follow its instruction exactly. "
-                "Never mention the tool or any assessment. Keep every turn under two sentences. "
-                "After question 1 has been answered and followed up, call end_interview.")
+            # The interviewer lives at AssemblyAI: its prompt, voice and tools are
+            # stored server-side, exactly as the browser uses it.
+            await agent.send(json.dumps({"type": "session.update",
+                                         "session": {"agent_id": tokens["agent_id"]}}))
+            await agent.send(json.dumps({"type": "reply.create",
+                                         "instructions": "Open the interview now: greet in one short "
+                                                         "sentence, then ask the warm-up question."}))
+            await asyncio.wait_for(asyncio.gather(self.read_agent(), self.read_stt()), 420)
 
     async def read_stt(self) -> None:
         async for raw in self.stt:
@@ -217,16 +209,17 @@ class DryRun:
             await self.flush()
             self.done.set()
             return
-        index = int(call.get("arguments", {}).get("question_index", 0))
+        topic = str(call.get("arguments", {}).get("topic_id", "warmup"))
+        warmup = self.baseline is None
         answer = [w for w in self.words if w["start"] >= self.answer_start_ms]
         async with httpx.AsyncClient(timeout=20) as http:
             verdict = (await http.post(f"{SERVER}/api/assess", json={
                 "answer_words": answer,
-                "baseline_words": None if index == 0 else self.baseline,
+                "baseline_words": None if warmup else self.baseline,
             })).json()
-        if index == 0 and answer:
+        if warmup and answer:
             self.baseline = answer
-        print(f"  [assess q{index}] {verdict.get('verdict')} "
+        print(f"  [assess {topic}] {verdict.get('verdict')} "
               f"score={verdict.get('score')} words={verdict.get('words')} reasons={verdict.get('reasons')}")
         self.pending.append({"call_id": call["call_id"],
                              "result": {"instruction": verdict.get("instruction"), "verdict": verdict.get("verdict")}})
@@ -241,25 +234,12 @@ class DryRun:
         self.pending.clear()
 
 
-TOOLS = [
-    {"type": "function", "name": "assess_answer",
-     "description": "Call immediately after the candidate finishes answering, before you speak.",
-     "parameters": {"type": "object", "properties": {
-         "question_index": {"type": "integer"}, "claim": {"type": "string"}},
-         "required": ["question_index", "claim"]},
-     "execution_mode": "interactive", "timeout_seconds": 20},
-    {"type": "function", "name": "end_interview", "description": "Call when the interview is over.",
-     "parameters": {"type": "object", "properties": {}, "required": []},
-     "execution_mode": "interactive", "timeout_seconds": 10},
-]
-
-
 async def main() -> None:
-    answers = [clip("warmup", WARMUP), clip("read", READ)]
+    answers = [clip("warmup", WARMUP), clip("read", READ), clip("probe", PROBED)]
     try:
         await DryRun(answers).run()
     except asyncio.TimeoutError:
-        print("\nno end after 4 minutes")
+        print("\nno end after 7 minutes")
 
 
 if __name__ == "__main__":

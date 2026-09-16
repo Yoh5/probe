@@ -10,27 +10,74 @@
 //
 // When the agent calls `assess_answer`, this page collects the words of the
 // answer that just ended and asks the server for the verdict. The server
-// decides; the agent only chooses how to word the follow-up.
+// decides; the agent only chooses how to word the next question.
 //
 // WHAT THE CANDIDATE SEES: the conversation, and nothing else. No score, no
-// signal, no hint that an answer was probed. Showing it would teach a candidate
-// what to fake.
+// signal, no hint that an answer was probed. The interviewer's instructions live
+// in a stored agent at AssemblyAI, not in this file, so they cannot be read from
+// the page either.
 
 const AGENT_URL = "wss://agents.assemblyai.com/v1/ws";
 const STT_URL = "wss://streaming.assemblyai.com/v3/ws";
 const RATE = 24000;
 // How long to wait for the transcription connection to finish the last words of
-// an answer before assessing it. The agent is holding its turn meanwhile.
+// an answer before assessing it. The agent holds its turn meanwhile.
 const WORDS_SETTLE_MS = 1200;
 
-let questions = [];
+const COPY = {
+  en: { title: "A conversation, not a form.", lede: "Five minutes, out loud. The interviewer listens, answers, and asks what comes next from what you say.",
+        terms1: "<b>Your voice is transcribed as you speak</b> by AssemblyAI. The audio itself is not kept.",
+        terms2: "The transcript is kept and used to prepare a report for the recruiter. It suggests what to ask next; it never decides anything on its own.",
+        start: "I agree, start the interview", hint: "Headphones keep the interviewer's voice out of your microphone.",
+        listening: "Listening", speaking: "The interviewer is speaking", connecting: "Connecting", you: "You", them: "Interviewer",
+        finish: "End the interview", saving: "Saving the interview", savingLede: "A few seconds. Keep this page open.",
+        done: "Thank you. That's everything.", doneLede: "The recruiter has your interview and will be in touch.", retry: "Try again" },
+  fr: { title: "Une conversation, pas un formulaire.", lede: "Cinq minutes, à voix haute. L'entretien écoute, répond, et enchaîne à partir de ce que vous dites.",
+        terms1: "<b>Votre voix est transcrite au fil de la parole</b> par AssemblyAI. L'audio n'est pas conservé.",
+        terms2: "La transcription est conservée et sert à préparer un compte rendu pour le recruteur. Elle suggère quoi demander ensuite ; elle ne décide jamais rien seule.",
+        start: "J'accepte, commencer l'entretien", hint: "Un casque évite que la voix de l'entretien entre dans votre micro.",
+        listening: "À vous", speaking: "L'entretien parle", connecting: "Connexion", you: "Vous", them: "Entretien",
+        finish: "Terminer l'entretien", saving: "Enregistrement de l'entretien", savingLede: "Quelques secondes. Gardez cette page ouverte.",
+        done: "Merci, c'est terminé.", doneLede: "Le recruteur a votre entretien et vous recontactera.", retry: "Réessayer" },
+  es: { title: "Una conversación, no un formulario.", lede: "Cinco minutos, en voz alta. La entrevista escucha, responde y sigue con lo que usted dice.",
+        terms1: "<b>Su voz se transcribe mientras habla</b> con AssemblyAI. El audio no se conserva.",
+        terms2: "La transcripción se conserva y sirve para preparar un informe para el reclutador. Sugiere qué preguntar después; nunca decide nada por sí sola.",
+        start: "Acepto, empezar la entrevista", hint: "Los auriculares evitan que la voz de la entrevista entre en su micrófono.",
+        listening: "Le escucho", speaking: "La entrevista habla", connecting: "Conectando", you: "Usted", them: "Entrevista",
+        finish: "Terminar la entrevista", saving: "Guardando la entrevista", savingLede: "Unos segundos. Mantenga esta página abierta.",
+        done: "Gracias, eso es todo.", doneLede: "El reclutador tiene su entrevista y se pondrá en contacto.", retry: "Reintentar" },
+  de: { title: "Ein Gespräch, kein Formular.", lede: "Fünf Minuten, laut gesprochen. Das Gespräch hört zu, antwortet und knüpft an Ihre Worte an.",
+        terms1: "<b>Ihre Stimme wird beim Sprechen transkribiert</b> von AssemblyAI. Das Audio wird nicht gespeichert.",
+        terms2: "Das Transkript wird gespeichert und dient einem Bericht für die Recruiterin oder den Recruiter. Es schlägt vor, was als Nächstes zu fragen ist; es entscheidet nie allein.",
+        start: "Einverstanden, Gespräch starten", hint: "Kopfhörer halten die Stimme des Gesprächs aus Ihrem Mikrofon.",
+        listening: "Sie sind dran", speaking: "Das Gespräch spricht", connecting: "Verbindung", you: "Sie", them: "Gespräch",
+        finish: "Gespräch beenden", saving: "Gespräch wird gespeichert", savingLede: "Ein paar Sekunden. Lassen Sie die Seite offen.",
+        done: "Danke, das war alles.", doneLede: "Das Gespräch liegt vor und man meldet sich bei Ihnen.", retry: "Erneut versuchen" },
+  it: { title: "Una conversazione, non un modulo.", lede: "Cinque minuti, ad alta voce. Il colloquio ascolta, risponde e prosegue da ciò che dice.",
+        terms1: "<b>La sua voce viene trascritta mentre parla</b> da AssemblyAI. L'audio non viene conservato.",
+        terms2: "La trascrizione viene conservata e serve a preparare un resoconto per il selezionatore. Suggerisce cosa chiedere dopo; non decide mai nulla da sola.",
+        start: "Accetto, iniziare il colloquio", hint: "Le cuffie tengono la voce del colloquio fuori dal microfono.",
+        listening: "A lei", speaking: "Il colloquio parla", connecting: "Connessione", you: "Lei", them: "Colloquio",
+        finish: "Terminare il colloquio", saving: "Salvataggio del colloquio", savingLede: "Pochi secondi. Tenga aperta la pagina.",
+        done: "Grazie, è tutto.", doneLede: "Il selezionatore ha il colloquio e la ricontatterà.", retry: "Riprovare" },
+  pt: { title: "Uma conversa, não um formulário.", lede: "Cinco minutos, em voz alta. A entrevista ouve, responde e continua a partir do que você diz.",
+        terms1: "<b>A sua voz é transcrita enquanto fala</b> pela AssemblyAI. O áudio não é guardado.",
+        terms2: "A transcrição é guardada e serve para preparar um relatório para o recrutador. Sugere o que perguntar a seguir; nunca decide nada sozinha.",
+        start: "Aceito, começar a entrevista", hint: "Auscultadores evitam que a voz da entrevista entre no seu microfone.",
+        listening: "É consigo", speaking: "A entrevista fala", connecting: "A ligar", you: "Você", them: "Entrevista",
+        finish: "Terminar a entrevista", saving: "A guardar a entrevista", savingLede: "Alguns segundos. Mantenha esta página aberta.",
+        done: "Obrigado, é tudo.", doneLede: "O recrutador tem a sua entrevista e entrará em contacto.", retry: "Tentar de novo" },
+};
+
+let languages = [];
+let language = "en";
 let agentWs, sttWs, audioContext, playerContext, player, stream;
 let samplesSent = 0;
 let words = [];            // every final word from the transcription connection
-let lastWordAt = 0;        // when the last final word arrived (page clock)
+let lastWordAt = 0;
 let answerStartMs = 0;     // audio clock at the end of the agent's last reply
-let baselineWords = null;  // the warm-up answer, what every later answer is compared to
-let turns = [];            // the conversation, for the recruiter's report
+let baselineWords = null;  // the warm-up answer: what later answers are compared to
+let turns = [];
 let assessments = [];
 let pendingResults = [];
 let lastEvent = null;
@@ -39,89 +86,146 @@ let failed = false;
 
 const clockMs = () => (samplesSent / RATE) * 1000;
 const $ = (id) => document.getElementById(id);
+const copy = () => COPY[language] || COPY.en;
 
 function show(name) {
   for (const screen of document.querySelectorAll(".screen")) screen.hidden = screen.id !== `screen-${name}`;
 }
 
-// -- welcome ------------------------------------------------------------------
+// -- the line ---------------------------------------------------------------------
+//
+// One canvas, two states. The candidate's voice draws mint bars from the real
+// microphone level; while the interviewer speaks, an amber wave travels across.
+// Nothing else on the page animates.
 
-$("consent").addEventListener("change", () => {
-  $("start").disabled = !$("consent").checked || !questions.length;
-  $("start-hint").textContent = $("consent").checked
-    ? "Your browser will ask to use the microphone."
-    : "Turn on the switch above to start.";
-});
+const levels = new Array(96).fill(0);
+let speaking = false;
+let phase = 0;
+const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-async function loadQuestions() {
+function drawLine(canvas) {
+  if (!canvas) return;
+  const ratio = window.devicePixelRatio || 1;
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight;
+  canvas.width = width * ratio;
+  canvas.height = height * ratio;
+  const context = canvas.getContext("2d");
+  context.scale(ratio, ratio);
+  context.clearRect(0, 0, width, height);
+  const middle = height / 2;
+  const step = width / levels.length;
+
+  context.lineWidth = 2;
+  context.lineCap = "round";
+  context.strokeStyle = speaking ? "#E9B44C" : "#74D3AE";
+  for (let i = 0; i < levels.length; i++) {
+    const x = i * step + step / 2;
+    // Idle, the line breathes so the page looks live before anyone speaks;
+    // while the interviewer talks, an amber wave travels across it.
+    const idle = still ? 0.05 : 0.05 + Math.abs(Math.sin(i * 0.12 + phase * 0.35)) * 0.06;
+    const travelling = speaking
+      ? Math.abs(Math.sin(i * 0.22 + phase)) * (still ? 0.25 : 0.55)
+      : Math.max(levels[i], idle);
+    const size = Math.max(1.2, travelling * (height * 0.44));
+    context.beginPath();
+    context.moveTo(x, middle - size);
+    context.lineTo(x, middle + size);
+    context.stroke();
+  }
+  context.strokeStyle = "rgba(242,239,230,.18)";
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(0, middle);
+  context.lineTo(width, middle);
+  context.stroke();
+}
+
+function animate() {
+  if (!still) phase += speaking ? 0.14 : 0.03;
+  drawLine($("line-welcome")?.offsetParent ? $("line-welcome") : $("line-live"));
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+
+function pushLevel(peak) {
+  levels.push(Math.min(1, peak * 2.2));
+  levels.shift();
+}
+
+// -- language and copy ----------------------------------------------------------------
+
+function applyCopy() {
+  const text = copy();
+  document.documentElement.lang = language;
+  $("t-title").textContent = text.title;
+  $("t-lede").textContent = text.lede;
+  $("t-terms-1").innerHTML = text.terms1;   // one bolded clause, written above, no user input
+  $("t-terms-2").textContent = text.terms2;
+  $("t-start").textContent = text.start;
+  $("t-hint").textContent = text.hint;
+  $("finish").textContent = text.finish;
+  $("t-saving").textContent = text.saving;
+  $("t-saving-lede").textContent = text.savingLede;
+  $("t-done").textContent = text.done;
+  $("t-done-lede").textContent = text.doneLede;
+  $("retry").textContent = text.retry;
+  $("state-label").textContent = text.connecting;
+}
+
+function renderLanguages() {
+  const nav = $("languages");
+  nav.replaceChildren();
+  for (const offered of languages) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = offered.name;
+    button.setAttribute("aria-pressed", String(offered.code === language));
+    button.addEventListener("click", () => {
+      language = offered.code;
+      applyCopy();
+      renderLanguages();
+    });
+    nav.append(button);
+  }
+}
+
+async function loadInterview() {
   try {
-    const response = await fetch("/api/questions");
+    const response = await fetch("/api/interview");
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    questions = (await response.json()).questions;
+    const brief = await response.json();
+    languages = brief.languages;
+    const preferred = (navigator.language || "en").slice(0, 2);
+    language = languages.some((l) => l.code === preferred) ? preferred : languages[0].code;
   } catch (error) {
-    return fail("The interview could not load", "The questions did not arrive.",
+    return fail("The interview could not load", "The server did not answer.",
       `Reason: ${error.message}. Reload the page in a moment.`);
   }
-  $("count").textContent = `${questions.length} questions, plus whatever the interviewer asks next.`;
-  $("start").disabled = !$("consent").checked;
+  renderLanguages();
+  applyCopy();
+  $("start").disabled = false;
 }
 
-// -- the two connections ---------------------------------------------------------
-
-function systemPrompt() {
-  const list = questions.map((q, i) => `${i}. ${q.text}`).join("\n");
-  return [
-    "You are conducting a short spoken job interview. You are warm, brief and neutral.",
-    "Ask these questions in order, one at a time, in your own words but keeping their meaning:",
-    list,
-    "",
-    "After every candidate answer, call the tool assess_answer with the index of the question they were answering and a one-line summary of the main claim they made. Wait for its result before you speak.",
-    "The tool result contains an instruction. Follow it exactly: it tells you either to move on to the next question, or to ask exactly one follow-up.",
-    "A follow-up must quote the candidate's own words and ask for something a prepared text would not contain: a concrete detail, a moment something went wrong, a trade-off, or why one specific decision was made. Ask one, listen to the answer, then move on.",
-    "Never mention the tool, a score, an assessment, or that an answer sounded prepared or read. Never evaluate the candidate out loud, and never say whether an answer was good.",
-    "Keep every turn under two sentences. When the last question has been answered, thank the candidate in one sentence and call end_interview.",
-  ].join("\n");
-}
-
-const TOOLS = [
-  {
-    type: "function",
-    name: "assess_answer",
-    description: "Call this immediately after the candidate finishes answering a question, before you say anything. Returns the instruction you must follow next.",
-    parameters: {
-      type: "object",
-      properties: {
-        question_index: { type: "integer", description: "Index of the question they just answered, starting at 0" },
-        claim: { type: "string", description: "One line: the main claim the candidate made" },
-      },
-      required: ["question_index", "claim"],
-    },
-    execution_mode: "interactive",
-    timeout_seconds: 20,
-  },
-  {
-    type: "function",
-    name: "end_interview",
-    description: "Call this once the last question has been answered and you have thanked the candidate.",
-    parameters: { type: "object", properties: {}, required: [] },
-    execution_mode: "interactive",
-    timeout_seconds: 10,
-  },
-];
+// -- starting -------------------------------------------------------------------------
 
 async function start() {
   $("start").disabled = true;
-  $("start").replaceChildren(Object.assign(document.createElement("span"), { className: "spinner" }), " Connecting");
+  $("start").prepend(Object.assign(document.createElement("span"), { className: "spinner" }));
 
-  let tokens;
+  let session;
   try {
-    const response = await fetch("/api/tokens", { method: "POST" });
+    const response = await fetch("/api/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ language }),
+    });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(body.detail || `HTTP ${response.status}`);
-    tokens = body;
+    session = body;
   } catch (error) {
     return fail("The interview could not start", "The service that hears and answers you did not respond.",
-      `Reason: ${error.message}. Try again in a moment; if it keeps happening, the recruiter can check the server.`);
+      `Reason: ${error.message}. Try again in a moment; if it keeps happening, tell the recruiter.`);
   }
 
   try {
@@ -137,26 +241,14 @@ async function start() {
       `Plug in or enable a microphone, then press Try again. (${error.name})`);
   }
 
-  openAgent(tokens.agent);
-  openTranscription(tokens.streaming);
+  openAgent(session);
+  openTranscription(session.streaming);
 }
 
-function openAgent(token) {
-  agentWs = new WebSocket(`${AGENT_URL}?token=${encodeURIComponent(token)}`);
-  agentWs.onopen = () => agentWs.send(JSON.stringify({
-    type: "session.update",
-    session: {
-      system_prompt: systemPrompt(),
-      greeting: `Thanks for joining. ${questions[0]?.text ?? ""}`,
-      tools: TOOLS,
-      output: { voice: "alba" },
-      input: {
-        // An interview answer has thinking pauses in it. Ending the turn on a
-        // short silence would cut the candidate off mid-thought.
-        turn_detection: { min_silence: 1200, max_silence: 4000, interrupt_response: true },
-      },
-    },
-  }));
+function openAgent(session) {
+  agentWs = new WebSocket(`${AGENT_URL}?token=${encodeURIComponent(session.agent)}`);
+  // The agent is stored at AssemblyAI: the browser sends its id, not its instructions.
+  agentWs.onopen = () => agentWs.send(JSON.stringify({ type: "session.update", session: { agent_id: session.agent_id } }));
   agentWs.onmessage = (event) => handleAgent(JSON.parse(event.data));
   agentWs.onclose = (event) => {
     if (!finished && !failed && event.code !== 1000) {
@@ -176,15 +268,15 @@ function openTranscription(token) {
   sttWs = new WebSocket(url);
   sttWs.onmessage = (event) => {
     const message = JSON.parse(event.data);
+    // Only finalised turns carry settled timings; partials would be counted twice.
     if (message.type === "Turn" && message.end_of_turn) {
-      // Only finalised turns carry settled timings; partials would be counted twice.
       for (const word of message.words || []) words.push(word);
       lastWordAt = performance.now();
     }
   };
 }
 
-// -- audio ---------------------------------------------------------------------------
+// -- audio -----------------------------------------------------------------------------
 
 async function startAudio() {
   audioContext = new AudioContext({ sampleRate: RATE });
@@ -206,7 +298,7 @@ async function startAudio() {
       peak = Math.max(peak, Math.abs(sample));
     }
     samplesSent += data.length;
-    updateLevel(peak);
+    pushLevel(peak);
     const bytes = new Uint8Array(pcm.buffer);
     if (agentWs?.readyState === WebSocket.OPEN) {
       agentWs.send(JSON.stringify({ type: "input.audio", audio: base64(bytes) }));
@@ -233,29 +325,30 @@ function playAgentAudio(base64Audio) {
   player?.port.postMessage(floats);
 }
 
-let level = 0;
-function updateLevel(peak) {
-  level = level * 0.6 + Math.min(1, peak * 1.8) * 0.4;
-  $("mic").style.setProperty("--level", level.toFixed(3));
-}
-
 function setSpeaking(on) {
-  $("mic").classList.toggle("speaking", on);
-  $("state-label").textContent = on ? "The interviewer is speaking" : "Listening. Answer when you are ready.";
+  speaking = on;
+  $("dot").classList.toggle("speaking", on);
+  $("state-label").textContent = on ? copy().speaking : copy().listening;
 }
 
-// -- the agent's events ---------------------------------------------------------------
+// -- the agent's events -------------------------------------------------------------------
 
 function handleAgent(message) {
   switch (message.type) {
     case "session.ready":
-      startAudio().then(() => show("interview"));
+      // The stored agent has no fixed greeting: a recorded one could not be
+      // translated. It opens the interview itself, in the chosen language.
+      startAudio().then(() => {
+        show("interview");
+        agentWs.send(JSON.stringify({ type: "reply.create",
+          instructions: "Open the interview now: greet in one short sentence, then ask the warm-up question." }));
+      });
       break;
     case "reply.audio":
       playAgentAudio(message.data);
       break;
     case "transcript.agent":
-      addTurn("interviewer", message.text);
+      addTurn("them", message.text);
       break;
     case "transcript.user":
       addTurn("you", message.text);
@@ -269,7 +362,7 @@ function handleAgent(message) {
       break;
     case "reply.done":
       lastEvent = "reply.done";
-      // The agent has stopped talking: whatever is said from now on is the answer.
+      // The interviewer has stopped: whatever is said from now on is the answer.
       answerStartMs = clockMs();
       if (message.status === "interrupted") pendingResults = [];
       else flushResults();
@@ -293,7 +386,8 @@ async function handleTool(call) {
   }
   if (call.name !== "assess_answer") return queueResult(call.call_id, { error: "unknown tool" });
 
-  const index = Number(call.arguments?.question_index ?? 0);
+  const topic = String(call.arguments?.topic_id ?? "warmup");
+  const warmup = !baselineWords;
   const start = answerStartMs;
   await settle();
   const answerWords = words.filter((w) => w.start >= start);
@@ -303,16 +397,16 @@ async function handleTool(call) {
     const response = await fetch("/api/assess", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ answer_words: answerWords, baseline_words: index === 0 ? null : baselineWords }),
+      body: JSON.stringify({ answer_words: answerWords, baseline_words: warmup ? null : baselineWords }),
     });
     verdict = await response.json();
     if (!response.ok) throw new Error(verdict.detail || `HTTP ${response.status}`);
   } catch (error) {
-    // A failed assessment must not derail the interview: the agent moves on.
-    verdict = { verdict: "not_measured", instruction: "Move on to the next question.", error: error.message };
+    // A failed assessment must not derail the interview: the agent carries on.
+    verdict = { verdict: "not_measured", instruction: "Ask your next question.", error: error.message };
   }
-  if (index === 0 && answerWords.length) baselineWords = answerWords;
-  assessments.push({ question_index: index, claim: call.arguments?.claim ?? "", words: answerWords, ...verdict });
+  if (warmup && answerWords.length) baselineWords = answerWords;
+  assessments.push({ topic_id: topic, claim: call.arguments?.claim ?? "", words: answerWords, ...verdict });
   queueResult(call.call_id, { instruction: verdict.instruction, verdict: verdict.verdict });
 }
 
@@ -322,8 +416,7 @@ function settle() {
   return new Promise((resolve) => {
     const deadline = performance.now() + WORDS_SETTLE_MS;
     const tick = () => {
-      const quiet = performance.now() - lastWordAt > 400;
-      if (quiet || performance.now() > deadline) resolve();
+      if (performance.now() - lastWordAt > 400 || performance.now() > deadline) resolve();
       else setTimeout(tick, 100);
     };
     tick();
@@ -343,39 +436,33 @@ function flushResults() {
   pendingResults = [];
 }
 
-// -- the conversation on screen -----------------------------------------------------------
+// -- the conversation on screen ------------------------------------------------------------
 
 function addTurn(role, text) {
   if (!text) return;
-  turns.push({ role, text, at: Math.round(clockMs()) });
+  turns.push({ role: role === "you" ? "candidate" : "interviewer", text, at: Math.round(clockMs()) });
+  if (role === "them") $("said").textContent = text;   // the question stays large while it is answered
   const line = document.createElement("p");
-  line.className = `turn ${role === "you" ? "you" : "interviewer"}`;
-  line.append(Object.assign(document.createElement("b"), { textContent: role === "you" ? "You" : "Interviewer" }), " ", text);
-  $("conversation").append(line);
-  $("conversation").scrollTop = $("conversation").scrollHeight;
+  line.className = `turn ${role}`;
+  line.append(Object.assign(document.createElement("span"), { textContent: role === "you" ? copy().you : copy().them }), text);
+  $("transcript").prepend(line);   // newest first: the column is reversed
 }
 
-// -- the end -----------------------------------------------------------------------------------
+// -- the end ---------------------------------------------------------------------------------
 
 async function finish() {
   if (finished) return;
   finished = true;
   show("saving");
   stream?.getTracks().forEach((track) => track.stop());
-  setTimeout(() => agentWs?.send(JSON.stringify({ type: "session.end" })), 200);
-  sttWs?.send(JSON.stringify({ type: "Terminate" }));
+  setTimeout(() => agentWs?.readyState === WebSocket.OPEN && agentWs.send(JSON.stringify({ type: "session.end" })), 200);
+  if (sttWs?.readyState === WebSocket.OPEN) sttWs.send(JSON.stringify({ type: "Terminate" }));
 
   try {
     const response = await fetch("/api/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        recordedAt: new Date().toISOString(),
-        questions,
-        turns,
-        assessments,
-        words,
-      }),
+      body: JSON.stringify({ recordedAt: new Date().toISOString(), language, turns, assessments, words }),
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(body.detail || `HTTP ${response.status}`);
@@ -403,4 +490,4 @@ function fail(title, text, fix, canRetry = true) {
 $("start").addEventListener("click", start);
 $("finish").addEventListener("click", finish);
 $("retry").addEventListener("click", () => location.reload());
-loadQuestions();
+loadInterview();

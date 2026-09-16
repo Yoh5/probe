@@ -4,179 +4,169 @@
   <meta charset="utf-8">
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#FFFFFF">
-  <title>Probe - spoken interview</title>
+  <meta name="theme-color" content="#0E1F1C">
+  <title>Probe - a spoken interview</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/static/base.css">
   <style>
-    body { display: flex; justify-content: center; }
-    .phone {
-      width: 100%; max-width: 440px; min-height: 100dvh;
+    /* Probe is a recording booth, not a form: dark room, warm paper-coloured
+       type, and one living line. Amber is the interviewer's voice, mint is the
+       candidate's. Nothing else is coloured, so the line always reads. */
+    :root {
+      --ink: #0E1F1C;
+      --lift: #16302A;
+      --paper: #F2EFE6;
+      --muted: #8FA8A1;
+      --amber: #E9B44C;
+      --mint: #74D3AE;
+      --edge: rgba(242, 239, 230, .16);
+      --serif: "Fraunces", Georgia, serif;
+      --sans: "IBM Plex Sans", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; background: var(--ink); color: var(--paper);
+      font: 16px/1.55 var(--sans); -webkit-font-smoothing: antialiased;
+      display: flex; justify-content: center;
+    }
+    .booth {
+      width: 100%; max-width: 560px; min-height: 100dvh;
       display: flex; flex-direction: column;
-      padding: 18px 20px max(18px, env(safe-area-inset-bottom));
+      padding: 22px 22px max(22px, env(safe-area-inset-bottom));
     }
-    .screen { display: flex; flex-direction: column; flex: 1; }
+
+    header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+    .wordmark { font-family: var(--serif); font-size: 21px; letter-spacing: .01em; }
+    .wordmark b { font-weight: 500; }
+    .languages { display: flex; gap: 10px 14px; flex-wrap: wrap; justify-content: flex-end; max-width: 60%; }
+    .languages button {
+      background: none; border: 0; padding: 2px 0; cursor: pointer;
+      color: var(--muted); font: 500 14px/1 var(--sans); letter-spacing: .04em;
+      border-bottom: 2px solid transparent;
+    }
+    .languages button[aria-pressed="true"] { color: var(--paper); border-bottom-color: var(--amber); }
+    .languages button:hover { color: var(--paper); }
+
+    /* On a tall window the welcome sits in the middle of the booth rather than
+       leaving a hole between the line and the terms. */
+    .screen { display: flex; flex-direction: column; flex: 1; padding-top: 26px; justify-content: center; }
+    #screen-interview { justify-content: flex-start; }
     .screen[hidden] { display: none; }
-    .brand { justify-content: center; margin-bottom: 18px; font-weight: 600; }
-    .lede { color: var(--secondary); font-size: 16px; margin: 0 0 22px; max-width: 34ch; }
 
-    .group { background: var(--grouped); border-radius: 16px; overflow: hidden; margin: 0 0 18px; }
-    .row { display: flex; gap: 14px; align-items: center; padding: 14px 16px; }
-    .row + .row { border-top: 1px solid var(--separator); }
-    .tile { flex: none; width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; color: #fff; }
-    .tile svg { width: 19px; height: 19px; }
-    .tile.orange { background: var(--orange); } .tile.blue { background: var(--blue); } .tile.indigo { background: var(--indigo); }
-    .text { margin: 0; font-size: 15px; font-weight: 500; }
-    .detail { display: block; font-size: 13px; font-weight: 400; color: var(--secondary); margin-top: 2px; }
-    .group-title { font-size: 13px; font-weight: 600; color: var(--secondary); margin: 0 0 8px 4px; text-transform: none; }
-    .prose { padding: 14px 16px; font-size: 14px; color: #3A3A3C; }
-    .prose p { margin: 0 0 10px; } .prose p:last-child { margin: 0; }
-
-    .switch-row { justify-content: space-between; }
-    .switch { position: relative; width: 50px; height: 30px; flex: none; }
-    .switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
-    .switch span { position: absolute; inset: 0; background: #E9E9EA; border-radius: 999px; transition: background .2s; }
-    .switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.2); transition: transform .2s; }
-    .switch input:checked + span { background: var(--live); }
-    .switch input:checked + span::after { transform: translateX(20px); }
-    .switch input:focus-visible + span { outline: 3px solid color-mix(in srgb, var(--tint) 45%, transparent); outline-offset: 2px; }
-
-    .toolbar { margin-top: auto; padding-top: 14px; }
-    .button {
-      width: 100%; min-height: 52px; border: 0; border-radius: 14px;
-      background: var(--tint); color: #fff; font: 600 17px/1 var(--font);
-      display: inline-flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer;
-      transition: background .15s, transform .1s;
+    h1 {
+      font-family: var(--serif); font-weight: 400; font-size: clamp(34px, 9vw, 44px);
+      line-height: 1.08; letter-spacing: -0.015em; margin: 0 0 14px; max-width: 15ch;
     }
-    .button:hover { background: var(--tint-pressed); } .button:active { transform: scale(.985); }
-    .button:disabled { background: #D1D1D6; cursor: default; transform: none; }
-    .button.quiet { background: var(--grouped); color: var(--label); }
-    .button.quiet:hover { background: #E5E5EA; }
-    .hint { font-size: 13px; color: var(--secondary); text-align: center; margin: 10px 0 0; }
-    .link { color: var(--tint); font-weight: 600; text-decoration: none; display: inline-block; margin-top: 18px; }
+    .lede { color: var(--muted); margin: 0; max-width: 44ch; }
+
+    /* The line: the only thing that moves. It is the candidate's voice in mint,
+       the interviewer's in amber. */
+    .line { width: 100%; height: 84px; display: block; margin: 30px 0 26px; }
+
+    .terms { border-top: 1px solid var(--edge); padding-top: 18px; margin-top: 8px; }
+    .terms p { margin: 0 0 10px; color: var(--muted); font-size: 14.5px; max-width: 46ch; }
+    .terms p:last-child { margin: 0; }
+    .terms b { color: var(--paper); font-weight: 500; }
+
+    .go {
+      width: 100%; margin-top: 22px; min-height: 58px; padding: 0 22px;
+      background: var(--amber); color: #23180A; border: 0; border-radius: 4px;
+      font: 600 17px/1 var(--sans); cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; gap: 12px;
+      transition: background .15s ease, transform .08s ease;
+    }
+    .go:hover { background: #F2C468; }
+    .go:active { transform: translateY(1px); }
+    .go:disabled { background: var(--lift); color: var(--muted); cursor: default; }
+    .ghost {
+      width: 100%; min-height: 50px; margin-top: 18px; background: none; cursor: pointer;
+      color: var(--muted); border: 1px solid var(--edge); border-radius: 4px; font: 500 15px/1 var(--sans);
+    }
+    .ghost:hover { color: var(--paper); border-color: var(--paper); }
+    button:focus-visible, .languages button:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+    .hint { color: var(--muted); font-size: 13.5px; margin: 12px 0 0; text-align: center; }
 
     /* -- the interview ------------------------------------------------------ */
-    .mic { position: relative; width: 84px; height: 84px; margin: 4px auto 6px; display: grid; place-items: center; }
-    .mic::before {
-      content: ""; position: absolute; inset: 12px; border-radius: 50%;
-      background: color-mix(in srgb, var(--live) 22%, transparent);
-      transform: scale(calc(1 + var(--level, 0) * 0.4));
-      transition: transform 90ms linear, background .3s;
+    .status { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; margin: 0; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mint); flex: none; }
+    .dot.speaking { background: var(--amber); }
+    .said {
+      font-family: var(--serif); font-weight: 400; font-size: clamp(23px, 6vw, 29px);
+      line-height: 1.22; letter-spacing: -0.01em; margin: 18px 0 0; text-wrap: pretty;
     }
-    .mic .core { position: relative; width: 52px; height: 52px; border-radius: 50%; background: var(--live); display: grid; place-items: center; color: #fff; transition: background .3s; }
-    .mic .core svg { width: 26px; height: 26px; }
-    .mic.speaking::before { background: color-mix(in srgb, var(--tint) 20%, transparent); transform: scale(1.18); }
-    .mic.speaking .core { background: var(--tint); }
-    .state-label { text-align: center; font-size: 14px; font-weight: 500; color: var(--secondary); margin: 0 0 14px; min-height: 1.4em; }
+    .transcript {
+      flex: 1; overflow-y: auto; margin: 26px 0 0; padding-top: 18px;
+      border-top: 1px solid var(--edge); display: flex; flex-direction: column-reverse; gap: 14px;
+    }
+    .turn { margin: 0; font-size: 15px; line-height: 1.5; color: var(--muted); }
+    .turn span { display: block; font-size: 12.5px; letter-spacing: .06em; color: #5F7A73; margin-bottom: 2px; }
+    .turn.you { color: var(--paper); }
+    .turn.you span { color: var(--mint); }
 
-    .conversation { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 2px 8px; }
-    .turn { margin: 0; font-size: 15px; line-height: 1.5; border-radius: 14px; padding: 11px 14px; max-width: 92%; }
-    .turn b { display: block; font-size: 12px; font-weight: 600; color: var(--secondary); margin-bottom: 3px; }
-    .turn.interviewer { background: var(--grouped); align-self: flex-start; }
-    .turn.you { background: color-mix(in srgb, var(--tint) 10%, transparent); align-self: flex-end; }
-
-    .center { flex: 1; display: grid; place-content: center; text-align: center; gap: 6px; }
-    .badge { width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center; margin: 0 auto 14px; color: #fff; }
-    .badge.ok { background: var(--live); } .badge.bad { background: var(--danger); }
-    .badge svg { width: 30px; height: 30px; }
-    .spinner { width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; animation: spin .7s linear infinite; }
-    .spinner.dark { border-color: rgba(0,0,0,.15); border-top-color: var(--tint); width: 26px; height: 26px; }
+    .center { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .center h1 { max-width: 18ch; }
+    .error-fix { color: var(--muted); font-size: 14.5px; margin: 14px 0 0; max-width: 44ch; }
+    .spinner { width: 17px; height: 17px; border-radius: 50%; border: 2px solid rgba(35,24,10,.25); border-top-color: #23180A; animation: spin .7s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } .mic::before { transition: none; } }
+    @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
   </style>
 </head>
 <body>
-<div class="phone">
-  <span class="brand">
-    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 12h2M9 7v10M14 4v16M19 9v6"/></svg></span>
-    Probe
-  </span>
+<div class="booth">
+  <header>
+    <span class="wordmark">pro<b>be</b></span>
+    <nav class="languages" id="languages" aria-label="Interview language"></nav>
+  </header>
 
-  <!-- 1. Welcome -->
+  <!-- 1. Before we start -->
   <section class="screen" id="screen-welcome">
-    <h1 class="large-title">A spoken interview</h1>
-    <p class="lede" id="count">Loading the questions...</p>
-
-    <div class="group" role="list">
-      <div class="row" role="listitem">
-        <span class="tile orange" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v4.8l3 1.8"/></svg></span>
-        <p class="text">About five minutes<span class="detail">There is no timer on your answers</span></p>
-      </div>
-      <div class="row" role="listitem">
-        <span class="tile blue" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
-        <p class="text">You talk with the interviewer<span class="detail">It listens, answers out loud, and asks follow-ups</span></p>
-      </div>
-      <div class="row" role="listitem">
-        <span class="tile indigo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="2"/><rect x="17" y="14" width="4" height="6" rx="2"/></svg></span>
-        <p class="text">Headphones work best<span class="detail">They keep the interviewer's voice out of your microphone</span></p>
-      </div>
-    </div>
-
-    <p class="group-title" id="consent-title">What happens to your answers</p>
-    <div class="group" aria-labelledby="consent-title">
-      <div class="prose">
-        <p>Your voice goes straight from this page to AssemblyAI, which turns it into text in real time. The audio is not stored.</p>
-        <p>The transcript is kept, with the timing of each word, and is used to prepare a report for the recruiter.</p>
-        <p>The report never decides anything on its own. It only suggests what to talk about in a second interview.</p>
-      </div>
-      <div class="row switch-row">
-        <label for="consent">I understand and agree</label>
-        <span class="switch"><input type="checkbox" id="consent"><span></span></span>
-      </div>
-    </div>
-
-    <div class="toolbar">
-      <button class="button" id="start" disabled>Start interview</button>
-      <p class="hint" id="start-hint">Turn on the switch above to start.</p>
+    <h1 id="t-title">A conversation, not a form.</h1>
+    <p class="lede" id="t-lede">Five minutes, out loud. The interviewer listens, answers, and asks what comes next from what you say.</p>
+    <canvas class="line" id="line-welcome" aria-hidden="true"></canvas>
+    <div class="terms">
+      <p id="t-terms-1"><b>Your voice is transcribed as you speak</b> by AssemblyAI. The audio itself is not kept.</p>
+      <p id="t-terms-2">The transcript is kept and used to prepare a report for the recruiter. It suggests what to ask next; it never decides anything on its own.</p>
+      <button class="go" id="start" disabled><span id="t-start">I agree, start the interview</span></button>
+      <p class="hint" id="t-hint">Headphones keep the interviewer's voice out of your microphone.</p>
     </div>
   </section>
 
   <!-- 2. The interview -->
   <section class="screen" id="screen-interview" hidden>
-    <div class="mic" id="mic" aria-hidden="true">
-      <div class="core">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
-      </div>
-    </div>
-    <p class="state-label" id="state-label" aria-live="polite">Connecting...</p>
-    <div class="conversation" id="conversation" aria-live="polite"></div>
-    <div class="toolbar">
-      <button class="button quiet" id="finish">End the interview</button>
-    </div>
+    <canvas class="line" id="line-live" aria-hidden="true"></canvas>
+    <p class="status"><span class="dot" id="dot"></span><span id="state-label">Connecting</span></p>
+    <p class="said" id="said"></p>
+    <div class="transcript" id="transcript" aria-live="polite"></div>
+    <button class="ghost" id="finish">End the interview</button>
   </section>
 
   <!-- 3. Saving -->
   <section class="screen" id="screen-saving" hidden>
     <div class="center">
-      <div class="spinner dark" style="margin:0 auto 18px"></div>
-      <h1 class="large-title">Saving your interview</h1>
-      <p class="lede" style="margin-inline:auto">This takes a few seconds. Please keep this page open.</p>
+      <h1 id="t-saving">Saving the interview</h1>
+      <p class="lede" id="t-saving-lede">A few seconds. Keep this page open.</p>
     </div>
   </section>
 
   <!-- 4. Done -->
   <section class="screen" id="screen-done" hidden>
     <div class="center">
-      <div class="badge ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg></div>
-      <h1 class="large-title">Thank you</h1>
-      <p class="lede" style="margin-inline:auto">Your interview is complete. The recruiter will be in touch.</p>
-      <a class="link" id="report-link" href="#" hidden>Open the recruiter report</a>
+      <h1 id="t-done">Thank you. That's everything.</h1>
+      <p class="lede" id="t-done-lede">The recruiter has your interview and will be in touch.</p>
+      <a class="hint" id="report-link" href="#" hidden style="color:var(--amber)">Open the recruiter's report</a>
     </div>
   </section>
 
   <!-- 5. Something went wrong -->
   <section class="screen" id="screen-error" hidden>
     <div class="center">
-      <div class="badge bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 7v7M12 17h.01"/></svg></div>
-      <h1 class="large-title" id="error-title">Something went wrong</h1>
-      <p class="lede" id="error-text" style="margin-inline:auto"></p>
-      <p class="hint" id="error-fix"></p>
-    </div>
-    <div class="toolbar">
-      <button class="button" id="retry">Try again</button>
+      <h1 id="error-title">Something went wrong</h1>
+      <p class="lede" id="error-text"></p>
+      <p class="error-fix" id="error-fix"></p>
+      <button class="go" id="retry">Try again</button>
     </div>
   </section>
 </div>
