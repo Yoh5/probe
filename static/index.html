@@ -24,6 +24,7 @@
       --edge: rgba(242, 239, 230, .16);
       --serif: "Fraunces", Georgia, serif;
       --sans: "IBM Plex Sans", system-ui, sans-serif;
+      color-scheme: dark;
     }
     * { box-sizing: border-box; }
     html, body { height: 100%; }
@@ -32,21 +33,37 @@
       font: 16px/1.55 var(--sans); -webkit-font-smoothing: antialiased;
       display: flex; justify-content: center;
     }
+
+    /* The surfaces nobody draws still belong to the booth: a selection, a
+       scrollbar and an underline in browser blue would be the one place the
+       design stops. */
+    ::selection { background: var(--amber); color: #23180A; }
+    a { color: var(--amber); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+    .transcript { scrollbar-width: thin; scrollbar-color: #2C4A43 transparent; }
+    .transcript::-webkit-scrollbar { width: 6px; }
+    .transcript::-webkit-scrollbar-track { background: transparent; }
+    .transcript::-webkit-scrollbar-thumb { background: #2C4A43; border-radius: 3px; }
     .booth {
       width: 100%; max-width: 560px; min-height: 100dvh;
       display: flex; flex-direction: column;
       padding: 22px 22px max(22px, env(safe-area-inset-bottom));
     }
 
-    header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+    /* Six language names do not fit beside a wordmark on a phone: pushed into the
+       corner they broke into three ragged rows and pushed the page down. They get
+       their own full-width row instead, reading left to right like the text does. */
+    header { display: flex; flex-direction: column; gap: 14px; }
     .wordmark { font-family: var(--serif); font-size: 21px; letter-spacing: .01em; }
     .wordmark b { font-weight: 500; }
-    .languages { display: flex; gap: 10px 14px; flex-wrap: wrap; justify-content: flex-end; max-width: 60%; }
+    .languages { display: flex; gap: 20px 20px; flex-wrap: wrap; }
     .languages button {
-      background: none; border: 0; padding: 2px 0; cursor: pointer;
+      position: relative; background: none; border: 0; padding: 0 0 4px; cursor: pointer;
       color: var(--muted); font: 500 14px/1 var(--sans); letter-spacing: .04em;
       border-bottom: 2px solid transparent;
     }
+    /* The mark stays tight under the word; the thumb gets the whole block around
+       it. A 14px label is not a 14px target. */
+    .languages button::after { content: ""; position: absolute; inset: -10px -7px; }
     .languages button[aria-pressed="true"] { color: var(--paper); border-bottom-color: var(--amber); }
     .languages button:hover { color: var(--paper); }
 
@@ -59,11 +76,13 @@
     h1 {
       font-family: var(--serif); font-weight: 400; font-size: clamp(34px, 9vw, 44px);
       line-height: 1.08; letter-spacing: -0.015em; margin: 0 0 14px; max-width: 15ch;
+      text-wrap: balance;
     }
     .lede { color: var(--muted); margin: 0; max-width: 44ch; }
 
-    /* The line: the only thing that moves. It is the candidate's voice in mint,
-       the interviewer's in amber. */
+    /* The line: the only thing that moves, and it only exists once the microphone
+       is open. On the welcome screen it would have been a meter with nothing to
+       measure - decoration where the page has something to say instead. */
     .line { width: 100%; height: 84px; display: block; margin: 30px 0 26px; }
 
     .terms { border-top: 1px solid var(--edge); padding-top: 18px; margin-top: 8px; }
@@ -73,7 +92,7 @@
 
     .go {
       width: 100%; margin-top: 22px; min-height: 58px; padding: 0 22px;
-      background: var(--amber); color: #23180A; border: 0; border-radius: 4px;
+      background: var(--amber); color: #23180A; border: 0; border-radius: 2px;
       font: 600 17px/1 var(--sans); cursor: pointer;
       display: inline-flex; align-items: center; justify-content: center; gap: 12px;
       transition: background .15s ease, transform .08s ease;
@@ -83,11 +102,12 @@
     .go:disabled { background: var(--lift); color: var(--muted); cursor: default; }
     .ghost {
       width: 100%; min-height: 50px; margin-top: 18px; background: none; cursor: pointer;
-      color: var(--muted); border: 1px solid var(--edge); border-radius: 4px; font: 500 15px/1 var(--sans);
+      color: var(--muted); border: 1px solid var(--edge); border-radius: 2px; font: 500 15px/1 var(--sans);
     }
     .ghost:hover { color: var(--paper); border-color: var(--paper); }
     button:focus-visible, .languages button:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
     .hint { color: var(--muted); font-size: 13.5px; margin: 12px 0 0; text-align: center; }
+    .report-link { display: inline-block; margin-top: 20px; font-size: 15px; }
 
     /* -- the interview ------------------------------------------------------ */
     .status { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; margin: 0; }
@@ -99,10 +119,14 @@
     }
     .transcript {
       flex: 1; overflow-y: auto; margin: 26px 0 0; padding-top: 18px;
-      border-top: 1px solid var(--edge); display: flex; flex-direction: column-reverse; gap: 14px;
+      border-top: 1px solid var(--edge); display: flex; flex-direction: column; gap: 14px;
     }
+    /* Set like a script: the speaker runs into their own line rather than sitting
+       on a small grey label above it. Amber is the interviewer everywhere on this
+       page, mint is the candidate, so the colour is the attribution. */
     .turn { margin: 0; font-size: 15px; line-height: 1.5; color: var(--muted); }
-    .turn span { display: block; font-size: 12.5px; letter-spacing: .06em; color: #5F7A73; margin-bottom: 2px; }
+    .turn + .turn { border-bottom: 1px solid var(--edge); padding-bottom: 14px; }
+    .turn span { font-weight: 600; color: var(--amber); margin-right: .55em; }
     .turn.you { color: var(--paper); }
     .turn.you span { color: var(--mint); }
 
@@ -121,11 +145,11 @@
     <nav class="languages" id="languages" aria-label="Interview language"></nav>
   </header>
 
+
   <!-- 1. Before we start -->
   <section class="screen" id="screen-welcome">
     <h1 id="t-title">A conversation, not a form.</h1>
     <p class="lede" id="t-lede">Five minutes, out loud. The interviewer listens, answers, and asks what comes next from what you say.</p>
-    <canvas class="line" id="line-welcome" aria-hidden="true"></canvas>
     <div class="terms">
       <p id="t-terms-1"><b>Your voice is transcribed as you speak</b> by AssemblyAI. The audio itself is not kept.</p>
       <p id="t-terms-2">The transcript is kept and used to prepare a report for the recruiter. It suggests what to ask next; it never decides anything on its own.</p>
@@ -156,7 +180,7 @@
     <div class="center">
       <h1 id="t-done">Thank you. That's everything.</h1>
       <p class="lede" id="t-done-lede">The recruiter has your interview and will be in touch.</p>
-      <a class="hint" id="report-link" href="#" hidden style="color:var(--amber)">Open the recruiter's report</a>
+      <a class="report-link" id="report-link" href="#" hidden>Open the recruiter's report</a>
     </div>
   </section>
 

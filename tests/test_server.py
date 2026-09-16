@@ -81,7 +81,7 @@ def test_what_the_interviewer_is_told_stays_on_the_server(client, minted):
     response = client.post("/api/session", json={"language": "en"})
     payload = minted["agents"][0]["payload"]
     assert "assess_answer" in json.dumps(payload["tools"])
-    assert "quote their own words" in payload["system_prompt"]
+    assert "must be built on something they have already said" in payload["system_prompt"]
     assert payload["system_prompt"] not in response.text
 
 

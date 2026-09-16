@@ -48,19 +48,52 @@ def words_between(words: list[dict], start_s: float, end_s: float | None) -> lis
     return [w for w in words if w["start"] >= start_s and (end_s is None or w["start"] < end_s)]
 
 
-def _guidance(kind: str, reasons: list[str]) -> str:
+QUOTE_WORDS = 20
+
+
+def quote_of(answer: list[dict]) -> str:
+    """The candidate's own closing words, verbatim from the transcript.
+
+    The agent summarises what it heard when it calls the tool; the summary is
+    already one step away from what was said. Handing the real words back is what
+    lets the next question be built on them.
+    """
+    return " ".join(str(w["text"]) for w in answer[-QUOTE_WORDS:]).strip()
+
+
+def _ground(quote: str) -> str:
+    """The sentence every instruction ends on, whatever the verdict.
+
+    A question drawn from a topic heading is a question the candidate could have
+    answered before hearing it - the exact thing this interview is built to stop.
+    So every result, even a clean one, makes the next question come out of the
+    candidate's own words.
+    """
+    if not quote:
+        return ("Build the next question on what the candidate just said, not on a topic heading. "
+                "It must be a question they could not have answered before speaking.")
+    return (f'These are the candidate\'s own closing words: "{quote}". Take one phrase from them '
+            "and put it word for word inside your next question, then ask for what only the person "
+            "who lived it would know.")
+
+
+def _guidance(kind: str, reasons: list[str], quote: str = "") -> str:
+    ground = _ground(quote)
     if kind == "prepared":
         because = "; ".join(reasons) if reasons else "several signals lean that way"
         return ("This answer sounds prepared rather than thought through on the spot "
-                f"({because}). Ask exactly one short follow-up that makes the candidate go beyond "
-                "a script: a concrete detail, a moment something went wrong, a trade-off they chose, "
-                "or why they made one specific decision they mentioned. Refer to their own words. "
-                "Never say or hint that the answer sounded prepared or read.")
+                f"({because}). Ask exactly one short follow-up that a script cannot cover: a concrete "
+                "number, the first thing that broke, a trade-off they chose, who disagreed, or how "
+                f"they found out they were wrong. {ground} Never say or hint that the answer sounded "
+                "prepared or read.")
     if kind == "spontaneous":
-        return "This answer sounds spontaneous. Do not probe it; move on to the next question."
+        return ("This answer sounds spontaneous, so there is nothing to press on for its own sake. "
+                f"Move the interview forward. {ground}")
     if kind == "baseline":
-        return "This was the warm-up. Thank the candidate briefly and ask the next question."
-    return "This answer was too short to assess. Do not probe it; move on to the next question."
+        return ("That was the warm-up. Do not dig into it. Open the first topic with one short "
+                f"question. {ground}")
+    return ("There is not enough here to assess, which is not a finding about the candidate. Do not "
+            f"press them about it. Ask one short question that takes the thread further. {ground}")
 
 
 def assess(answer: list[dict], baseline: list[dict] | None, model: dict | None = None) -> dict:
@@ -73,13 +106,16 @@ def assess(answer: list[dict], baseline: list[dict] | None, model: dict | None =
     result = {"words": len(answer), "measured": False, "sounds_prepared": None,
               "score": None, "threshold": model["threshold"], "reasons": [], "signals": {}}
 
+    quote = quote_of(answer)
+    result["quote"] = quote
+
     if baseline is None:
         result["verdict"] = "baseline"
-        result["instruction"] = _guidance("baseline", [])
+        result["instruction"] = _guidance("baseline", [], quote)
         return result
     if len(answer) < MIN_WORDS or len(baseline) < MIN_BASELINE_WORDS:
         result["verdict"] = "not_measured"
-        result["instruction"] = _guidance("not_measured", [])
+        result["instruction"] = _guidance("not_measured", [], quote)
         return result
 
     own = features.extract(answer, None)
@@ -89,12 +125,12 @@ def assess(answer: list[dict], baseline: list[dict] | None, model: dict | None =
     result["signals"] = {s["name"]: row.get(s["name"]) for s in model["signals"]}
     if scored["score"] is None:
         result["verdict"] = "not_measured"
-        result["instruction"] = _guidance("not_measured", [])
+        result["instruction"] = _guidance("not_measured", [], quote)
         return result
 
     reasons = [detector.EXPLANATIONS[n] for n in scored["pointing_to_reading"] if n in detector.EXPLANATIONS]
     kind = "prepared" if scored["suggests_reading"] else "spontaneous"
     result.update(measured=True, sounds_prepared=scored["suggests_reading"], score=scored["score"],
                   reasons=reasons if kind == "prepared" else [], verdict=kind,
-                  instruction=_guidance(kind, reasons))
+                  instruction=_guidance(kind, reasons, quote))
     return result

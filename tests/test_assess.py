@@ -77,7 +77,7 @@ def test_a_written_answer_gets_a_probe_instruction_with_its_reasons():
 def test_a_spontaneous_answer_is_left_alone():
     r = assess.assess(converted(CHATTY_2), converted(CHATTY), MODEL)
     assert r["verdict"] == "spontaneous" and r["sounds_prepared"] is False
-    assert "Do not probe" in r["instruction"] and r["reasons"] == []
+    assert "nothing to press on" in r["instruction"] and r["reasons"] == []
 
 
 def test_the_warm_up_is_never_judged():
@@ -92,10 +92,42 @@ def test_the_warm_up_is_never_judged():
 def test_nothing_measured_asks_for_nothing(answer, baseline):
     r = assess.assess(converted(answer), converted(baseline), MODEL)
     assert r["verdict"] == "not_measured" and r["measured"] is False
-    assert r["sounds_prepared"] is None and "Do not probe" in r["instruction"]
+    assert r["sounds_prepared"] is None and "Do not press them" in r["instruction"]
 
 
 def test_the_instruction_never_tells_the_candidate_what_was_measured():
     for answer in (WRITTEN, CHATTY_2):
         r = assess.assess(converted(answer, pause_every=9), converted(CHATTY), MODEL)
         assert "read" not in r["instruction"].lower().replace("never say or hint that the answer sounded prepared or read", "")
+
+
+# -- the next question comes from the candidate, whatever the verdict ---------------
+
+def test_the_quote_is_the_candidates_own_closing_words():
+    """Not the agent's summary of them: the transcript, verbatim, from the end."""
+    text = " ".join(f"word{i}" for i in range(40))
+    quote = assess.quote_of(converted(text))
+    assert quote.split() == [f"word{i}" for i in range(40 - assess.QUOTE_WORDS, 40)]
+
+
+@pytest.mark.parametrize("answer, baseline", [
+    (CHATTY, None),                       # the warm-up
+    (CHATTY_2, CHATTY),                   # sounds spontaneous
+    (WRITTEN, CHATTY),                    # sounds prepared
+    ("short answer here", CHATTY),        # nothing measured
+])
+def test_every_verdict_hands_back_the_candidates_words(answer, baseline):
+    """A verdict that only says 'move on' produces the generic next question this
+    project exists to remove. Every result carries the words instead."""
+    r = assess.assess(converted(answer), converted(baseline) if baseline else None, MODEL)
+    tail = " ".join(answer.split()[-6:])
+    assert tail in r["instruction"], r["verdict"]
+    assert tail in r["quote"]
+    assert "word for word inside your next question" in r["instruction"]
+
+
+def test_an_answer_with_no_words_still_forbids_a_generic_question():
+    r = assess.assess([], converted(CHATTY), MODEL)
+    assert r["quote"] == ""
+    assert "not on a topic heading" in r["instruction"]
+    assert "could not have answered before speaking" in r["instruction"]

@@ -77,9 +77,10 @@ def test_the_prompt_carries_the_topics_and_the_language():
 def test_the_prompt_forbids_reading_prepared_questions():
     """The whole point: a candidate can rehearse a question they can predict."""
     prompt = interview.system_prompt(interview.validate(GOOD), "en").lower()
-    assert "never read a list of prepared questions" in prompt
-    assert "quote their own words" in prompt
-    assert "could have answered before hearing it" in prompt
+    assert "the only question you may ask without having heard the candidate" in prompt
+    assert "repeat a phrase of theirs word for word inside your question" in prompt
+    assert "could the candidate have answered it if they had been handed it a week ago?" in prompt
+    assert "a topic is a direction to steer in, never a question to read out" in prompt
 
 
 def test_the_prompt_keeps_the_assessment_from_the_candidate():

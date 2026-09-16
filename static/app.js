@@ -23,48 +23,54 @@ const RATE = 24000;
 // How long to wait for the transcription connection to finish the last words of
 // an answer before assessing it. The agent holds its turn meanwhile.
 const WORDS_SETTLE_MS = 1200;
+// How long the interviewer sits in a silence before moving the interview on. Its
+// own turn detection covers the pauses inside an answer; this covers the one
+// thing turn detection cannot see - a candidate who never starts.
+const SILENCE_MS = 5000;
+// Before that, the page says out loud that thinking is allowed.
+const PATIENCE_MS = 2000;
 
 const COPY = {
   en: { title: "A conversation, not a form.", lede: "Five minutes, out loud. The interviewer listens, answers, and asks what comes next from what you say.",
         terms1: "<b>Your voice is transcribed as you speak</b> by AssemblyAI. The audio itself is not kept.",
         terms2: "The transcript is kept and used to prepare a report for the recruiter. It suggests what to ask next; it never decides anything on its own.",
         start: "I agree, start the interview", hint: "Headphones keep the interviewer's voice out of your microphone.",
-        listening: "Listening", speaking: "The interviewer is speaking", connecting: "Connecting", you: "You", them: "Interviewer",
+        listening: "Listening", thinking: "Take your time", speaking: "The interviewer is speaking", connecting: "Connecting", you: "You", them: "Interviewer",
         finish: "End the interview", saving: "Saving the interview", savingLede: "A few seconds. Keep this page open.",
         done: "Thank you. That's everything.", doneLede: "The recruiter has your interview and will be in touch.", retry: "Try again" },
   fr: { title: "Une conversation, pas un formulaire.", lede: "Cinq minutes, à voix haute. L'entretien écoute, répond, et enchaîne à partir de ce que vous dites.",
         terms1: "<b>Votre voix est transcrite au fil de la parole</b> par AssemblyAI. L'audio n'est pas conservé.",
         terms2: "La transcription est conservée et sert à préparer un compte rendu pour le recruteur. Elle suggère quoi demander ensuite ; elle ne décide jamais rien seule.",
         start: "J'accepte, commencer l'entretien", hint: "Un casque évite que la voix de l'entretien entre dans votre micro.",
-        listening: "À vous", speaking: "L'entretien parle", connecting: "Connexion", you: "Vous", them: "Entretien",
+        listening: "À vous", thinking: "Prenez votre temps", speaking: "L'entretien parle", connecting: "Connexion", you: "Vous", them: "Entretien",
         finish: "Terminer l'entretien", saving: "Enregistrement de l'entretien", savingLede: "Quelques secondes. Gardez cette page ouverte.",
         done: "Merci, c'est terminé.", doneLede: "Le recruteur a votre entretien et vous recontactera.", retry: "Réessayer" },
   es: { title: "Una conversación, no un formulario.", lede: "Cinco minutos, en voz alta. La entrevista escucha, responde y sigue con lo que usted dice.",
         terms1: "<b>Su voz se transcribe mientras habla</b> con AssemblyAI. El audio no se conserva.",
         terms2: "La transcripción se conserva y sirve para preparar un informe para el reclutador. Sugiere qué preguntar después; nunca decide nada por sí sola.",
         start: "Acepto, empezar la entrevista", hint: "Los auriculares evitan que la voz de la entrevista entre en su micrófono.",
-        listening: "Le escucho", speaking: "La entrevista habla", connecting: "Conectando", you: "Usted", them: "Entrevista",
+        listening: "Le escucho", thinking: "Tómese su tiempo", speaking: "La entrevista habla", connecting: "Conectando", you: "Usted", them: "Entrevista",
         finish: "Terminar la entrevista", saving: "Guardando la entrevista", savingLede: "Unos segundos. Mantenga esta página abierta.",
         done: "Gracias, eso es todo.", doneLede: "El reclutador tiene su entrevista y se pondrá en contacto.", retry: "Reintentar" },
   de: { title: "Ein Gespräch, kein Formular.", lede: "Fünf Minuten, laut gesprochen. Das Gespräch hört zu, antwortet und knüpft an Ihre Worte an.",
         terms1: "<b>Ihre Stimme wird beim Sprechen transkribiert</b> von AssemblyAI. Das Audio wird nicht gespeichert.",
         terms2: "Das Transkript wird gespeichert und dient einem Bericht für die Recruiterin oder den Recruiter. Es schlägt vor, was als Nächstes zu fragen ist; es entscheidet nie allein.",
         start: "Einverstanden, Gespräch starten", hint: "Kopfhörer halten die Stimme des Gesprächs aus Ihrem Mikrofon.",
-        listening: "Sie sind dran", speaking: "Das Gespräch spricht", connecting: "Verbindung", you: "Sie", them: "Gespräch",
+        listening: "Sie sind dran", thinking: "Lassen Sie sich Zeit", speaking: "Das Gespräch spricht", connecting: "Verbindung", you: "Sie", them: "Gespräch",
         finish: "Gespräch beenden", saving: "Gespräch wird gespeichert", savingLede: "Ein paar Sekunden. Lassen Sie die Seite offen.",
         done: "Danke, das war alles.", doneLede: "Das Gespräch liegt vor und man meldet sich bei Ihnen.", retry: "Erneut versuchen" },
   it: { title: "Una conversazione, non un modulo.", lede: "Cinque minuti, ad alta voce. Il colloquio ascolta, risponde e prosegue da ciò che dice.",
         terms1: "<b>La sua voce viene trascritta mentre parla</b> da AssemblyAI. L'audio non viene conservato.",
         terms2: "La trascrizione viene conservata e serve a preparare un resoconto per il selezionatore. Suggerisce cosa chiedere dopo; non decide mai nulla da sola.",
         start: "Accetto, iniziare il colloquio", hint: "Le cuffie tengono la voce del colloquio fuori dal microfono.",
-        listening: "A lei", speaking: "Il colloquio parla", connecting: "Connessione", you: "Lei", them: "Colloquio",
+        listening: "A lei", thinking: "Con calma", speaking: "Il colloquio parla", connecting: "Connessione", you: "Lei", them: "Colloquio",
         finish: "Terminare il colloquio", saving: "Salvataggio del colloquio", savingLede: "Pochi secondi. Tenga aperta la pagina.",
         done: "Grazie, è tutto.", doneLede: "Il selezionatore ha il colloquio e la ricontatterà.", retry: "Riprovare" },
   pt: { title: "Uma conversa, não um formulário.", lede: "Cinco minutos, em voz alta. A entrevista ouve, responde e continua a partir do que você diz.",
         terms1: "<b>A sua voz é transcrita enquanto fala</b> pela AssemblyAI. O áudio não é guardado.",
         terms2: "A transcrição é guardada e serve para preparar um relatório para o recrutador. Sugere o que perguntar a seguir; nunca decide nada sozinha.",
         start: "Aceito, começar a entrevista", hint: "Auscultadores evitam que a voz da entrevista entre no seu microfone.",
-        listening: "É consigo", speaking: "A entrevista fala", connecting: "A ligar", you: "Você", them: "Entrevista",
+        listening: "É consigo", thinking: "Não tenha pressa", speaking: "A entrevista fala", connecting: "A ligar", you: "Você", them: "Entrevista",
         finish: "Terminar a entrevista", saving: "A guardar a entrevista", savingLede: "Alguns segundos. Mantenha esta página aberta.",
         done: "Obrigado, é tudo.", doneLede: "O recrutador tem a sua entrevista e entrará em contacto.", retry: "Tentar de novo" },
 };
@@ -99,7 +105,7 @@ function show(name) {
 // microphone level; while the interviewer speaks, an amber wave travels across.
 // Nothing else on the page animates.
 
-const levels = new Array(96).fill(0);
+const levels = new Array(52).fill(0);
 let speaking = false;
 let phase = 0;
 const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -117,16 +123,16 @@ function drawLine(canvas) {
   const middle = height / 2;
   const step = width / levels.length;
 
-  context.lineWidth = 2;
+  context.lineWidth = 3;
   context.lineCap = "round";
   context.strokeStyle = speaking ? "#E9B44C" : "#74D3AE";
   for (let i = 0; i < levels.length; i++) {
     const x = i * step + step / 2;
     // Idle, the line breathes so the page looks live before anyone speaks;
     // while the interviewer talks, an amber wave travels across it.
-    const idle = still ? 0.05 : 0.05 + Math.abs(Math.sin(i * 0.12 + phase * 0.35)) * 0.06;
+    const idle = still ? 0.06 : 0.06 + Math.abs(Math.sin(i * 0.22 + phase * 0.35)) * 0.10;
     const travelling = speaking
-      ? Math.abs(Math.sin(i * 0.22 + phase)) * (still ? 0.25 : 0.55)
+      ? Math.abs(Math.sin(i * 0.40 + phase)) * (still ? 0.25 : 0.55)
       : Math.max(levels[i], idle);
     const size = Math.max(1.2, travelling * (height * 0.44));
     context.beginPath();
@@ -326,6 +332,42 @@ function playAgentAudio(base64Audio) {
   player?.port.postMessage(floats);
 }
 
+// -- silence -----------------------------------------------------------------------
+//
+// The interviewer waits the whole time it gave. Nothing here hurries the
+// candidate: the page says to take their time, and only after five seconds
+// without a single word does the interview move itself on.
+
+let silenceTimer = null;
+let patienceTimer = null;
+let silences = 0;      // consecutive silences: two in a row and nobody is there
+
+function holdSilence() {
+  clearTimeout(silenceTimer);
+  clearTimeout(patienceTimer);
+  silenceTimer = patienceTimer = null;
+}
+
+function giveTheFloor() {
+  holdSilence();
+  patienceTimer = setTimeout(() => {
+    if (!speaking) $("state-label").textContent = copy().thinking;
+  }, PATIENCE_MS);
+  silenceTimer = setTimeout(moveOn, SILENCE_MS);
+}
+
+function moveOn() {
+  silenceTimer = null;
+  if (finished || agentWs?.readyState !== WebSocket.OPEN) return;
+  silences += 1;
+  const instructions = silences >= 2
+    ? "The candidate has been silent twice over and may have left. Thank them in one short sentence, "
+      + "say the interview ends here, and call end_interview."
+    : "The candidate has said nothing for five seconds. Do not repeat the question and do not mention "
+      + "the silence. Ask one shorter, simpler question instead.";
+  agentWs.send(JSON.stringify({ type: "reply.create", instructions }));
+}
+
 function setSpeaking(on) {
   speaking = on;
   $("dot").classList.toggle("speaking", on);
@@ -358,16 +400,22 @@ function handleAgent(message) {
     case "input.speech.started":
       player?.port.postMessage("flush");   // barge-in: stop the half-spoken sentence
       lastEvent = "input.speech.started";
+      holdSilence();        // they are speaking: the clock has no business running
+      silences = 0;
       break;
     case "reply.started":
       lastEvent = "reply.started";
+      holdSilence();
       break;
     case "reply.done":
       lastEvent = "reply.done";
       // The interviewer has stopped: whatever is said from now on is the answer.
       // A reply that said nothing out loud - the silent one that follows a tool
       // result - must not cut the answer in two.
-      if (agentSpoke) answerStartMs = clockMs();
+      if (agentSpoke) {
+        answerStartMs = clockMs();
+        giveTheFloor();     // the floor is theirs, and it stays theirs for five seconds
+      }
       agentSpoke = false;
       if (message.status === "interrupted") pendingResults = [];
       else flushResults();
@@ -443,14 +491,27 @@ function flushResults() {
 
 // -- the conversation on screen ------------------------------------------------------------
 
+let held = null;   // the question now shown large, kept out of the history below it
+
 function addTurn(role, text) {
   if (!text) return;
   turns.push({ role: role === "you" ? "candidate" : "interviewer", text, at: Math.round(clockMs()) });
-  if (role === "them") $("said").textContent = text;   // the question stays large while it is answered
+  if (role === "them") {
+    // The question stays large while it is being answered, and drops into the
+    // history only once the interviewer has asked the next one.
+    if (held) writeTurn("them", held);
+    held = text;
+    $("said").textContent = text;
+    return;
+  }
+  writeTurn(role, text);
+}
+
+function writeTurn(role, text) {
   const line = document.createElement("p");
   line.className = `turn ${role}`;
   line.append(Object.assign(document.createElement("span"), { textContent: role === "you" ? copy().you : copy().them }), text);
-  $("transcript").prepend(line);   // newest first: the column is reversed
+  $("transcript").prepend(line);   // newest first, right under the question being asked
 }
 
 // -- the end ---------------------------------------------------------------------------------
@@ -458,6 +519,7 @@ function addTurn(role, text) {
 async function finish() {
   if (finished) return;
   finished = true;
+  holdSilence();
   show("saving");
   stream?.getTracks().forEach((track) => track.stop());
   setTimeout(() => agentWs?.readyState === WebSocket.OPEN && agentWs.send(JSON.stringify({ type: "session.end" })), 200);
