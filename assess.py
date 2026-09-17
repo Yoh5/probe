@@ -165,5 +165,9 @@ def assess(answer: list[dict], baseline: list[dict] | None, model: dict | None =
     kind = "prepared" if scored["suggests_reading"] else "spontaneous"
     result.update(measured=True, sounds_prepared=scored["suggests_reading"], score=scored["score"],
                   reasons=reasons if kind == "prepared" else [], verdict=kind,
+                  # Which signals leaned that way, by name: the report shows the
+                  # numbers, and a reader should not have to work out which of the
+                  # four mattered.
+                  pointed=scored["pointing_to_reading"],
                   instruction=_guidance(kind, reasons, quote))
     return finish(result)

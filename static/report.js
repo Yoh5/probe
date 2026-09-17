@@ -146,14 +146,68 @@ function answerCard(answer, index) {
   remark.append(tile(TILE[answer.verdict] || "none"));
   const body = el("div");
   body.append(el("p", null, answer.summary));
-  if (answer.reasons.length) {
-    const why = el("ul");
-    for (const reason of answer.reasons) why.append(el("li", null, reason));
-    body.append(why);
-  }
   remark.append(body);
   card.append(remark);
+
+  const steps = chain(answer);
+  if (steps) card.append(steps);
   return card;
+}
+
+// The whole architecture, made visible for one answer: what was measured, what
+// was decided from it, what the interviewer was told, and what it then asked.
+// Without this the page shows a voice assistant having a chat, and the one thing
+// that makes Probe different stays inside a pipe nobody can see.
+function chain(answer) {
+  if (!answer.instruction && !answer.measured_signals.length) return null;
+  const box = el("div", "chain");
+  box.append(el("p", "chain-title", "How the next question was chosen"));
+  const steps = el("ol", "chain-steps");
+
+  if (answer.measured_signals.length) {
+    const step = el("li", "chain-step");
+    step.append(el("span", "chain-what", "The code measured"));
+    const gauges = el("div", "gauges");
+    for (const signal of answer.measured_signals) {
+      const gauge = el("div", `gauge${signal.points_to_reading ? " points" : ""}`);
+      gauge.append(el("b", null, signal.value),
+                   el("span", "gauge-label", signal.label),
+                   el("span", "gauge-unit", signal.unit));
+      gauges.append(gauge);
+    }
+    step.append(gauges);
+    steps.append(step);
+  }
+
+  const decided = el("li", "chain-step");
+  decided.append(el("span", "chain-what", "The code decided"));
+  decided.append(el("span", `chip ${answer.verdict}`, answer.title));
+  if (answer.reasons.length) {
+    const why = el("ul", "why");
+    for (const reason of answer.reasons) why.append(el("li", null, reason));
+    decided.append(why);
+  }
+  steps.append(decided);
+
+  if (answer.instruction) {
+    const told = el("li", "chain-step");
+    told.append(el("span", "chain-what", "The code told the interviewer"));
+    told.append(el("blockquote", "instruction", answer.instruction));
+    steps.append(told);
+  }
+
+  if (answer.then_asked) {
+    const asked = el("li", "chain-step");
+    asked.append(el("span", "chain-what", "The interviewer then asked"));
+    asked.append(el("p", "asked", answer.then_asked));
+    steps.append(asked);
+  }
+
+  box.append(steps);
+  box.append(el("p", "chain-note",
+    "The language model never saw these numbers and never chose the instruction. "
+    + "It chose the wording of the question."));
+  return box;
 }
 
 function render(report) {

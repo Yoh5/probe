@@ -345,3 +345,51 @@ h2::before { content: ""; width: 14px; height: 3px; border-radius: 2px; backgrou
   background: var(--grouped); border-radius: 11px; padding: 11px 13px;
 }
 .goal b { font-weight: 600; color: var(--ink); }
+
+/* -- the chain ------------------------------------------------------------------ */
+/* The architecture, made visible. Everything on the plum side of this block was
+   decided by code; only the last step was worded by the language model. */
+
+.chain { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--separator); }
+.chain-title { font: 600 12.5px/1.4 var(--sans); color: var(--secondary); margin: 0 0 4px; }
+.chain-steps { list-style: none; margin: 0; padding: 0 0 0 20px; position: relative; }
+/* One line running down the whole chain, so it reads as a sequence rather than a
+   stack of unrelated boxes. */
+.chain-steps::before {
+  content: ""; position: absolute; left: 4px; top: 14px; bottom: 14px;
+  width: 2px; background: color-mix(in srgb, var(--brand) 25%, transparent);
+}
+.chain-step { position: relative; padding: 12px 0; }
+.chain-step::before {
+  content: ""; position: absolute; left: -20px; top: 17px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--brand); box-shadow: 0 0 0 3px var(--bg);
+}
+.chain-step:last-child::before { background: var(--you); }
+.chain-what { display: block; font: 600 12px/1.4 var(--sans); color: var(--secondary); margin-bottom: 6px; }
+.chain-step .chip { margin: 0; }
+.chain-step .why { margin: 8px 0 0; padding-left: 17px; }
+
+.gauges { display: flex; flex-wrap: wrap; gap: 8px; }
+.gauge {
+  background: var(--grouped); border-radius: 11px; padding: 9px 12px;
+  display: flex; flex-direction: column; gap: 1px; flex: 1 1 11ch;
+}
+.gauge b { font: 600 17px/1.1 var(--sans); font-variant-numeric: tabular-nums; }
+.gauge-label { font-size: 12.5px; }
+.gauge-unit { font-size: 11.5px; color: var(--secondary); }
+/* A signal that pushed this answer towards "prepared" says so, rather than
+   leaving a reader to work out which of four numbers mattered. */
+.gauge.points { background: color-mix(in srgb, var(--flag-solid) 15%, transparent); }
+.gauge.points b, .gauge.points .gauge-label { color: var(--flag); }
+
+.instruction {
+  margin: 0; font-size: 14px; line-height: 1.45; color: var(--ink);
+  background: color-mix(in srgb, var(--brand) 7%, transparent);
+  border-radius: 11px; padding: 11px 13px;
+}
+.chain-step .asked {
+  margin: 0; font: 400 17px/1.35 var(--serif);
+  padding-left: 12px; border-left: 3px solid color-mix(in srgb, var(--you) 45%, transparent);
+}
+.chain-note { margin: 12px 0 0; font-size: 12.5px; color: var(--secondary); }

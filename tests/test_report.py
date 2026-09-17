@@ -35,7 +35,11 @@ def session(**over):
             {"topic_id": "warmup", "verdict": "baseline", "measured": False, "reasons": [],
              "quote": "before work", "answer_words": answer_one},
             {"topic_id": "project", "verdict": "prepared", "measured": True, "score": 0.9,
-             "threshold": -0.2, "reasons": ["longer words than in the warm-up"],
+             "threshold": -0.2, "reasons": ["vocabulary closer to written text than in the warm-up"],
+             "pointed": ["long_word_share/base"], "claim": "the export broke",
+             "instruction": "Ask exactly one short follow-up.",
+             "signals": {"long_word_share/base": 2.18, "disfluency_rate": 3.0,
+                         "comma_rate/base": 0.8, "mean_run/base": 1.19},
              "quote": "the old system", "answer_words": answer_two},
         ],
     }
@@ -86,7 +90,7 @@ def test_a_polished_answer_becomes_one_thing_to_ask_about():
     step = report.build(session(), MODEL, BRIEF)["next_steps"][0]
     assert step["kind"] == "prepared" and step["topic_id"] == "project"
     assert step["goal"] == "What they built and what broke"
-    assert step["reasons"] == ["longer words than in the warm-up"]
+    assert step["reasons"] == ["vocabulary closer to written text than in the warm-up"]
     assert "not misconduct" in step["why"]
 
 
@@ -173,3 +177,51 @@ def test_the_report_repeats_the_verdict_and_never_recomputes_it():
     built = report.build(odd, MODEL)
     assert built["answers"][1]["verdict"] == "spontaneous"
     assert built["status"] == "clear"
+
+
+# -- the chain, made visible --------------------------------------------------------
+
+def test_the_report_shows_what_was_measured_and_what_it_produced():
+    """The one thing that makes Probe different happens inside a pipe nobody can
+    see. A reader must be able to follow it: the numbers, the decision taken from
+    them, the instruction sent, and the sentence the interviewer said next."""
+    built = report.build(session(), MODEL, BRIEF)
+    measured = built["answers"][1]
+    assert [m["label"] for m in measured["measured_signals"]] == [
+        "Long words", "Hesitations and restarts", "Clause breaks", "Words between pauses"]
+    assert measured["instruction"] == "Ask exactly one short follow-up."
+    # The chain closes on the transcript: the question that followed the warm-up is
+    # the one the interviewer really asked next.
+    assert built["answers"][0]["then_asked"] == "You said the delimiters broke - which file?"
+
+
+def test_a_ratio_is_shown_as_a_ratio_and_a_rate_as_a_rate():
+    measured = {m["name"]: m for m in report.build(session(), MODEL, BRIEF)["answers"][1]["measured_signals"]}
+    assert measured["long_word_share/base"]["value"].endswith("\u00d7")
+    assert measured["long_word_share/base"]["unit"] == "against their own warm-up"
+    assert measured["disfluency_rate"]["value"] == "3.0"
+    assert measured["disfluency_rate"]["unit"] == "per 100 words"
+
+
+def test_the_signals_that_leaned_towards_prepared_are_the_ones_marked():
+    """Four numbers with none of them marked leaves a reader to guess which
+    mattered, which is the same as showing nothing."""
+    marked = [m["label"] for m in report.build(session(), MODEL, BRIEF)["answers"][1]["measured_signals"]
+              if m["points_to_reading"]]
+    assert marked == ["Long words"]
+
+
+def test_an_older_session_recovers_the_signals_from_its_own_reasons():
+    """Sessions recorded before the signal names were stored still carry the
+    sentences they produced, and a sentence names its signal exactly once."""
+    old = session()
+    old["assessments"][1].pop("pointed", None)
+    marked = [m["points_to_reading"] for m in report.build(old, MODEL, BRIEF)["answers"][1]["measured_signals"]]
+    assert marked == [True, False, False, False]
+
+
+def test_the_last_answer_has_no_question_after_it():
+    """The interview ended there. Inventing a follow-up would break the one thing
+    the chain is for, which is being checkable against the transcript."""
+    built = report.build(session(), MODEL, BRIEF)
+    assert built["answers"][-1]["then_asked"] == ""

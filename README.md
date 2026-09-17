@@ -40,7 +40,22 @@ follow-ups, because a follow-up cannot be prepared for and an opening question c
 
 ## Where the measurement fits
 
-This is the part that is easy to get backwards, so it is worth saying plainly.
+This is the part that is easy to get backwards, so it is worth saying plainly —
+and the report shows the whole chain for every answer, so nobody has to take it
+on trust:
+
+```
+The code measured        1.01x long words   5.0 hesitations
+                         0.38x clause breaks   1.74x words between pauses
+The code decided         Sounds prepared - fewer run-on clauses than in the warm-up
+The code told            "Ask exactly one short follow-up that a script cannot
+the interviewer           cover... These are the candidate's own closing words: ..."
+The interviewer          "When you were trying to fix that the agent was often
+then asked                hallucinating, what was the first thing you tried?"
+```
+
+The language model never saw those numbers and never chose that instruction. It
+chose the wording of the question.
 
 **The measurement is the interviewer's ear, not the product.** Probe is not a
 detector with an interview attached; it is an interview that listens to how it is
@@ -122,7 +137,7 @@ a candidate who could read them could prepare for them.
 ## Tests
 
 ```bash
-python -m pytest -q          # 123
+python -m pytest -q          # 128
 ```
 
 Including `tests/test_browser.py`, which runs a whole conversation through the

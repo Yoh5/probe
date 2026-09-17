@@ -152,6 +152,66 @@ def _steps(answers: list[dict], brief: dict | None) -> list[dict]:
     return steps
 
 
+# Each measured signal, in words and in the unit it is actually in. Three of the
+# four are ratios against the candidate's own warm-up, which is the point: the
+# comparison is always to the same person a minute earlier, never to other people.
+SIGNALS = {
+    "long_word_share/base": ("Long words", "against their own warm-up", "ratio"),
+    "disfluency_rate": ("Hesitations and restarts", "per 100 words", "rate"),
+    "comma_rate/base": ("Clause breaks", "against their own warm-up", "ratio"),
+    "mean_run/base": ("Words between pauses", "against their own warm-up", "ratio"),
+}
+
+
+# The reverse of detector.EXPLANATIONS. Sessions recorded before the signal names
+# were stored still carry the sentences they produced, and a sentence names its
+# signal exactly once.
+FROM_REASON = {reason: name for name, reason in detector.EXPLANATIONS.items()}
+
+
+def _pointed(assessment: dict) -> set[str]:
+    """Which signals leaned towards a prepared answer, by name."""
+    stored = assessment.get("pointed")
+    if isinstance(stored, list):
+        return set(stored)
+    return {FROM_REASON[r] for r in assessment.get("reasons") or [] if r in FROM_REASON}
+
+
+def _measured(assessment: dict) -> list[dict]:
+    """What the code actually looked at, in the order the model was fitted on."""
+    signals = assessment.get("signals") or {}
+    pointed = _pointed(assessment)
+    out = []
+    for name, (label, unit, kind) in SIGNALS.items():
+        value = signals.get(name)
+        if not isinstance(value, (int, float)):
+            continue
+        out.append({
+            "name": name,
+            "label": label,
+            "unit": unit,
+            "value": f"{value:.2f}x".replace("x", "×") if kind == "ratio" else f"{value:.1f}",
+            "points_to_reading": name in pointed,
+        })
+    return out
+
+
+def _then_asked(turns: list[dict], words: list[dict]) -> str:
+    """The question the interviewer asked once it had been told what to do.
+
+    The last link in the chain, and the one that makes the rest of it checkable: a
+    reader can see the measurement, the instruction it produced, and the sentence
+    that came out of the interviewer's mouth afterwards.
+    """
+    if not words:
+        return ""
+    ended = words[-1]["end"]
+    after = [t for t in turns
+             if t.get("role") == "interviewer"
+             and isinstance(t.get("at"), (int, float)) and t["at"] >= ended]
+    return str(after[0].get("text", "")).strip() if after else ""
+
+
 def _answer(assessment: dict, turns: list[dict]) -> dict:
     words = _words_of(assessment)
     verdict = assessment.get("verdict", "not_measured")
@@ -173,6 +233,12 @@ def _answer(assessment: dict, turns: list[dict]) -> dict:
         "reasons": reasons,
         "score": assessment.get("score"),
         "threshold": assessment.get("threshold"),
+        # The chain, end to end: what was measured, what the code decided from it,
+        # and what the interviewer said next. The model never saw the numbers and
+        # never chose the instruction; it chose the wording of the question.
+        "measured_signals": _measured(assessment),
+        "instruction": str(assessment.get("instruction", "")).strip(),
+        "then_asked": _then_asked(turns, words),
         "facts": {
             "words": len(words) or _counted(assessment),
             "seconds": _seconds(words),
