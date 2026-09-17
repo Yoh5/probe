@@ -121,9 +121,15 @@ const agent = (message) => window.handleAgent(message);
 
 // Words arriving on the transcription connection, the way the real one delivers
 // them: finalised turns, with timings on the audio clock.
+// AssemblyAI's word timings run on ITS clock, which starts when audio reaches it
+// and is not the clock the page keeps of what it has sent. STT_LAG is how far
+// behind the page's clock these timestamps sit: a real interview drifted far
+// enough that the answer window slid past every word and five answers in a row
+// were assessed with nothing in them.
+const STT_LAG = 4000;
 function heard(count) {
   const words = [];
-  let at = audioMs;
+  let at = Math.max(0, audioMs - STT_LAG);
   for (let i = 0; i < count; i++) {
     words.push({ text: `w${i}`, start: at, end: at + 200, confidence: 0.95 });
     at += 260;
@@ -259,10 +265,32 @@ async function run() {
     JSON.stringify(built));
   buildingBaseline = false;
 
+  // 6e. The answer window must not depend on two clocks agreeing. The words below
+  //     are timestamped well behind the page's own audio clock, the way the real
+  //     ones are; an answer window built from timestamps loses them entirely.
+  const mark3 = assessed.length;
+  agentSays("And what broke first?");
+  agent({ type: "input.speech.started" });
+  speak(3000);
+  heard(7);
+  agent({ type: "input.speech.stopped" });
+  agent({ type: "tool.call", name: "assess_answer", call_id: "drift", arguments: { topic_id: "project", claim: "x" } });
+  await wait(4000);
+  // The warm-up is still being gathered, so what is sent is everything said so far
+  // plus these seven. A window built from timestamps would have found none of
+  // them and sent the same count as last time.
+  const before7 = assessed[mark3 - 1].words;
+  const drifted = assessed.slice(mark3);
+  check("an answer is found even when the transcription clock lags behind",
+    drifted.length === 1 && drifted[0].words === before7 + 7,
+    `${before7} + 7 expected, got ${JSON.stringify(drifted)}`);
+
   // 7. The interview counts its own questions, and stops when they run out even
   //    if the interviewer would rather ask another.
-  check("the page tells the server how many questions have been asked",
-    typeof lastAsked === "number" && lastAsked > 0, `asked=${lastAsked}`);
+  const spoken = document.getElementById("transcript").querySelectorAll(".turn.them").length
+    + (document.getElementById("said").textContent ? 1 : 0);
+  check("the count sent is the questions asked, not the answers measured",
+    lastAsked === spoken, `sent=${lastAsked} asked=${spoken}`);
 
   outOfQuestions = true;
   agentSays("And one more thing?");

@@ -167,8 +167,8 @@ def system_prompt(brief: dict, language_code: str) -> str:
         "has been asked.",
         "",
         "The tool:",
-        "- After every candidate answer, call assess_answer with the topic id and one line saying what they "
-        "claimed. Wait for the result before speaking. This holds even when the answer was short, off topic, "
+        f"- After every candidate answer, call assess_answer with the topic id and one line, in "
+        f"{language['name']}, saying what they claimed - it is quoted back to the recruiter. Wait for the result before speaking. This holds even when the answer was short, off topic, "
         "or you plan to ask the question again.",
         "- The result carries an instruction and, with it, the candidate's own closing words as the "
         "transcript recorded them. Follow the instruction exactly and use those words: they are what your "

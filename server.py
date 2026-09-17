@@ -230,7 +230,10 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "topic_id": {"type": "string", "description": "The topic they were answering, or 'warmup'"},
-                "claim": {"type": "string", "description": "One line: what the candidate claimed"},
+                "claim": {"type": "string", "description": "One line, IN THE LANGUAGE OF THE "
+                                                           "INTERVIEW, saying what the candidate "
+                                                           "claimed. It is quoted back to the "
+                                                           "recruiter in the report."},
             },
             "required": ["topic_id", "claim"],
         },

@@ -17,22 +17,16 @@ Three rules carried through from Unscripted:
 from __future__ import annotations
 
 import detector
+import strings
 
-# What a signal means, in a sentence a recruiter can act on. Same wording the
-# interviewer was given, so the report and the interview cannot disagree.
-TITLES = {
-    "prepared": "Sounds prepared",
-    "spontaneous": "Sounds thought through on the spot",
-    "not_measured": "Too short to compare",
-    "baseline": "Warm-up, used as the comparison",
-}
+def words_for(language: str) -> dict:
+    """The report's whole vocabulary, in the language the interview was held in.
 
-SUMMARIES = {
-    "prepared": "worth asking about again, in person",
-    "spontaneous": "nothing here suggests a rehearsed answer",
-    "not_measured": "not enough speech to say anything either way",
-    "baseline": "this is what the other answers were compared against",
-}
+    Not the reader's language: a candidate answers in theirs and the recruiter
+    reads the result, so the report follows the interview. An unknown code falls
+    back to English rather than to half a page of missing strings.
+    """
+    return strings.STRINGS.get((language or "").lower(), strings.STRINGS["en"])
 
 
 def _text(words: list[dict]) -> str:
@@ -105,7 +99,7 @@ NEXT = {
 }
 
 
-def _steps(answers: list[dict], brief: dict | None) -> list[dict]:
+def _steps(answers: list[dict], brief: dict | None, say: dict) -> list[dict]:
     """What to dig into at the next interview, and why.
 
     This is the report. Everything below it is the evidence behind it: a recruiter
@@ -136,7 +130,7 @@ def _steps(answers: list[dict], brief: dict | None) -> list[dict]:
             kind, about = "missed", []
         else:
             continue
-        title, why = NEXT[kind]
+        title, why = say[f"step_{kind}"], say[f"why_{kind}"]
         claims = [a["claim"] for a in about if a["claim"]]
         reasons = [r for a in about for r in a["reasons"]]
         steps.append({
@@ -152,20 +146,9 @@ def _steps(answers: list[dict], brief: dict | None) -> list[dict]:
     return steps
 
 
-# Each measured signal, in words and in the unit it is actually in. Three of the
-# four are ratios against the candidate's own warm-up, which is the point: the
-# comparison is always to the same person a minute earlier, never to other people.
-SIGNALS = {
-    "long_word_share/base": ("Long words", "against their own warm-up", "ratio"),
-    "disfluency_rate": ("Hesitations and restarts", "per 100 words", "rate"),
-    "comma_rate/base": ("Clause breaks", "against their own warm-up", "ratio"),
-    "mean_run/base": ("Words between pauses", "against their own warm-up", "ratio"),
-}
-
-
 # The reverse of detector.EXPLANATIONS. Sessions recorded before the signal names
-# were stored still carry the sentences they produced, and a sentence names its
-# signal exactly once.
+# were stored still carry the English sentences they produced, and a sentence
+# names its signal exactly once.
 FROM_REASON = {reason: name for name, reason in detector.EXPLANATIONS.items()}
 
 
@@ -177,49 +160,39 @@ def _pointed(assessment: dict) -> set[str]:
     return {FROM_REASON[r] for r in assessment.get("reasons") or [] if r in FROM_REASON}
 
 
-def _measured(assessment: dict) -> list[dict]:
+def _measured(assessment: dict, say: dict) -> list[dict]:
     """What the code actually looked at, in the order the model was fitted on."""
     signals = assessment.get("signals") or {}
     pointed = _pointed(assessment)
     out = []
-    for name, (label, unit, kind) in SIGNALS.items():
+    for name, kind in strings.SIGNAL_KINDS.items():
         value = signals.get(name)
         if not isinstance(value, (int, float)):
             continue
         out.append({
             "name": name,
-            "label": label,
-            "unit": unit,
-            "value": f"{value:.2f}x".replace("x", "×") if kind == "ratio" else f"{value:.1f}",
+            "label": say[f"signal_{name}"],
+            "unit": say["unit_ratio"] if kind == "ratio" else say["unit_rate"],
+            "value": f"{value:.2f}×" if kind == "ratio" else f"{value:.1f}",
             "points_to_reading": name in pointed,
         })
     return out
 
 
-def _then_asked(turns: list[dict], words: list[dict]) -> str:
-    """The question the interviewer asked once it had been told what to do.
-
-    The last link in the chain, and the one that makes the rest of it checkable: a
-    reader can see the measurement, the instruction it produced, and the sentence
-    that came out of the interviewer's mouth afterwards.
-    """
-    if not words:
-        return ""
-    ended = words[-1]["end"]
-    after = [t for t in turns
-             if t.get("role") == "interviewer"
-             and isinstance(t.get("at"), (int, float)) and t["at"] >= ended]
-    return str(after[0].get("text", "")).strip() if after else ""
-
-
-def _answer(assessment: dict, turns: list[dict]) -> dict:
+def _answer(assessment: dict, turns: list[dict], say: dict) -> dict:
     words = _words_of(assessment)
     verdict = assessment.get("verdict", "not_measured")
-    # Without the answer's own words there is no way to say which question it
-    # followed, so the report says nothing rather than the wrong thing. What was
-    # assessed is still shown: `quote` was taken from the answer itself.
-    question = question_before(turns, words[0]["start"]) if words else ""
-    reasons = assessment.get("reasons") or []
+    if verdict not in ("prepared", "spontaneous", "baseline", "not_measured"):
+        verdict = "not_measured"
+    # The question is recorded with the answer, by the page, at the moment the
+    # answer is assessed - it is the one on screen. Older sessions did not store
+    # it, and for those it is worked out from the clock.
+    question = str(assessment.get("question", "")).strip()
+    if not question and words:
+        question = question_before(turns, words[0]["start"])
+    # Built from the signal names rather than repeated from the stored English, so
+    # the reasons speak the same language as the rest of the page.
+    reasons = [say[f"reason_{name}"] for name in strings.SIGNAL_KINDS if name in _pointed(assessment)]
     return {
         "topic_id": assessment.get("topic_id", ""),
         "claim": str(assessment.get("claim", "")).strip(),
@@ -227,8 +200,8 @@ def _answer(assessment: dict, turns: list[dict]) -> dict:
         "said": _text(words) or str(assessment.get("quote", "")).strip(),
         "excerpt": not words,          # what is shown is the closing words, not all of them
         "verdict": verdict,
-        "title": TITLES.get(verdict, TITLES["not_measured"]),
-        "summary": SUMMARIES.get(verdict, SUMMARIES["not_measured"]),
+        "title": say[f"verdict_{verdict}"],
+        "summary": say[f"summary_{verdict}"],
         "measured": bool(assessment.get("measured")),
         "reasons": reasons,
         "score": assessment.get("score"),
@@ -236,9 +209,9 @@ def _answer(assessment: dict, turns: list[dict]) -> dict:
         # The chain, end to end: what was measured, what the code decided from it,
         # and what the interviewer said next. The model never saw the numbers and
         # never chose the instruction; it chose the wording of the question.
-        "measured_signals": _measured(assessment),
+        "measured_signals": _measured(assessment, say),
         "instruction": str(assessment.get("instruction", "")).strip(),
-        "then_asked": _then_asked(turns, words),
+        "then_asked": "",      # filled in below: it is the next answer's question
         "facts": {
             "words": len(words) or _counted(assessment),
             "seconds": _seconds(words),
@@ -247,7 +220,7 @@ def _answer(assessment: dict, turns: list[dict]) -> dict:
     }
 
 
-def limits(model: dict | None = None) -> list[str]:
+def limits(model: dict | None = None, language: str = "en") -> list[str]:
     """What this report cannot tell you. It is part of the report, not a footnote.
 
     Every line here is a fact about how the detector was built, taken from the
@@ -255,27 +228,17 @@ def limits(model: dict | None = None) -> list[str]:
     model is refit.
     """
     model = model or detector.load()
+    say = words_for(language)
     trained = model.get("trained_on", {})
     answers = trained.get("answers")
     speakers = trained.get("speakers")
     accuracy = (model.get("unseen_session_accuracy") or {}).get("balanced_accuracy")
-    lines = [
-        "This measures how an answer was delivered, never whether it was true, and "
-        "never whether the candidate is any good at the job.",
-        "An answer can sound prepared because the candidate rehearsed, because they "
-        "have told the story many times, or because that is how they speak. The "
-        "report cannot tell those apart, and neither can anyone else from a recording.",
-        "Reading from notes is not misconduct. Treat a flag as something to ask "
-        "about, never as a reason to reject.",
-    ]
+    lines = [say["limit_delivery"], say["limit_reasons"], say["limit_notes"]]
     if answers:
-        who = "one speaker" if speakers == 1 else f"{speakers} speakers"
-        lines.append(f"The detector was fitted on {answers} labelled answers from {who}, "
-                     "and the signals were chosen after looking at that data. It has not "
-                     "been tested on a speaker it was not fitted on.")
+        who = say["one_speaker"] if speakers == 1 else say["many_speakers"].format(n=speakers)
+        lines.append(say["limit_fitted"].format(answers=answers, who=who))
     if accuracy:
-        lines.append(f"Held out one session at a time, it was right {round(accuracy * 100)}% "
-                     "of the time. It will be wrong about some answers here.")
+        lines.append(say["limit_accuracy"].format(percent=round(accuracy * 100)))
     return lines
 
 
@@ -287,23 +250,28 @@ def build(session: dict, model: dict | None = None, brief: dict | None = None) -
     the half hour after it spent well.
     """
     model = model or detector.load()
+    language = str(session.get("language", "en") or "en").lower()
+    say = words_for(language)
     turns = session.get("turns") or []
     assessments = session.get("assessments") or []
 
-    answers = [_answer(a, turns) for a in assessments]
+    answers = [_answer(a, turns, say) for a in assessments]
+    # The last link in the chain, and the one that makes the rest of it checkable:
+    # the question that followed an answer is the question of the next one.
+    for earlier, later in zip(answers, answers[1:]):
+        earlier["then_asked"] = later["question"]
     graded = [a for a in answers if a["verdict"] in ("prepared", "spontaneous")]
     flagged = [a for a in graded if a["verdict"] == "prepared"]
-    steps = _steps(answers, brief)
+    steps = _steps(answers, brief, say)
 
     if steps:
-        headline = ("One thing to dig into at the next interview." if len(steps) == 1
-                    else f"{len(steps)} things to dig into at the next interview.")
+        headline = say["head_one"] if len(steps) == 1 else say["head_many"].format(n=len(steps))
         status = "flag" if any(s["kind"] == "prepared" for s in steps) else "none"
     elif graded:
-        headline = "Nothing here needs a second look."
+        headline = say["head_clear"]
         status = "clear"
     else:
-        headline = "This interview produced nothing to go on."
+        headline = say["head_empty"]
         status = "none"
 
     spoken = sum(a["facts"]["words"] or 0 for a in answers)
@@ -321,5 +289,8 @@ def build(session: dict, model: dict | None = None, brief: dict | None = None) -
         },
         "answers": answers,
         "turns": [{"role": t.get("role", ""), "text": str(t.get("text", ""))} for t in turns],
-        "limits": limits(model),
+        "limits": limits(model, language),
+        # Every label the page shows, in the same language, so the page holds no
+        # words of its own and a missing translation cannot hide behind English.
+        "labels": say,
     }

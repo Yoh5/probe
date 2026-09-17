@@ -133,3 +133,14 @@ def test_the_brief_that_ships_is_a_short_interview_of_mostly_follow_ups():
     assert 4 <= shipped["max_questions"] <= 6
     openings = 1 + len(shipped["topics"])          # the warm-up, then one per topic
     assert shipped["max_questions"] - openings >= 2
+
+
+def test_the_claim_is_written_in_the_language_of_the_interview():
+    """It is quoted straight into the report, which the recruiter reads in the
+    language the candidate answered in. An English summary of a French answer is
+    the one line on the page that does not match the rest of it."""
+    brief = interview.validate({**GOOD, "languages": ["fr", "de"]})
+    for code, name in (("fr", "Français"), ("de", "Deutsch")):
+        prompt = interview.system_prompt(brief, code)
+        line = next(l for l in prompt.splitlines() if "assess_answer" in l)
+        assert f"in {name}" in line

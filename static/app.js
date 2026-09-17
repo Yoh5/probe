@@ -113,7 +113,16 @@ let agentWs, sttWs, audioContext, playerContext, player, stream;
 let samplesSent = 0;
 let words = [];            // every final word from the transcription connection
 let lastWordAt = 0;
-let answerStartMs = 0;     // audio clock at the end of the agent's last reply
+// Where this answer starts, as an INDEX into `words` rather than a time.
+//
+// It used to be a timestamp off our own audio clock, compared against timestamps
+// from AssemblyAI's. Two clocks that start at different moments and drift apart:
+// after two turns of a real interview the window had slid past every word, five
+// answers in a row were assessed with nothing in them, and the report said "not
+// enough speech" about answers the candidate had given in full. An index cannot
+// drift.
+let answerFrom = 0;
+let questionsAsked = 0;    // interviewer turns, which is what the limit counts
 let baselineWords = null;  // the warm-up, once it is long enough to compare against
 let warmupWords = [];      // what has been said in the warm-up so far, while it is still short
 let turns = [];
@@ -514,7 +523,7 @@ function handleAgent(message) {
       // A reply that said nothing out loud - the silent one that follows a tool
       // result - must not cut the answer in two.
       if (agentSpoke) {
-        answerStartMs = clockMs();
+        answerFrom = words.length;
         giveTheFloor();     // the floor is theirs, and it stays theirs for five seconds
       }
       agentSpoke = false;
@@ -550,7 +559,8 @@ async function handleTool(call) {
   // answer_words, not words: the verdict carries a word COUNT under that name and
   // the spread below would quietly replace the list with it - which is how the
   // first reports were built with no answers in them.
-  assessments.push({ topic_id: topic, claim: call.arguments?.claim ?? "", ...verdict, answer_words: answerWords });
+  assessments.push({ topic_id: topic, claim: call.arguments?.claim ?? "", question: held || "",
+                     ...verdict, answer_words: answerWords });
   queueResult(call.call_id, { instruction: verdict.instruction, verdict: verdict.verdict });
   // The interview has used up its questions. The agent has been told to thank the
   // candidate and end; if it asks one more instead, the page ends it anyway. A
@@ -571,29 +581,28 @@ function assessmentFor() {
   // being sent - and reusing one answer's verdict for the next is silent and
   // wrong. A turn number cannot collide.
   const id = turnId;
-  const start = answerStartMs;
+  const from = answerFrom;
   if (assessing && assessing.id === id) {
     return assessing.promise.then((done) => {
       // The pause that started it was a thinking pause and the candidate carried
       // on: that assessment was made on half an answer, so it is made again.
       if (words.length === done.seen) return done;
-      assessing = { id, promise: assessAnswer(start, id) };
+      assessing = { id, promise: assessAnswer(from, id) };
       return assessing.promise;
     });
   }
-  assessing = { id, promise: assessAnswer(start, id) };
+  assessing = { id, promise: assessAnswer(from, id) };
   return assessing.promise;
 }
 
-async function assessAnswer(start, id) {
+async function assessAnswer(from, id) {
   const building = !baselineWords;
   // One assessment per answer, so counting answers counts questions asked. Keyed
   // on the turn, so an assessment redone after a thinking pause does not count
   // the question twice.
   answered.add(id);
-  const asked = answered.size;
-  await settle(start);
-  const answerWords = words.filter((w) => w.start >= start);
+  await settle(from);
+  const answerWords = words.slice(from);
   // While the baseline is still being gathered, what gets assessed is everything
   // the candidate has said so far in the warm-up, not just the last sentence.
   const sent = building ? warmupWords.concat(answerWords) : answerWords;
@@ -602,7 +611,8 @@ async function assessAnswer(start, id) {
     const response = await fetch("/api/assess", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ answer_words: sent, baseline_words: building ? null : baselineWords, asked }),
+      body: JSON.stringify({ answer_words: sent, baseline_words: building ? null : baselineWords,
+                             asked: questionsAsked }),
     });
     verdict = await response.json();
     if (!response.ok) throw new Error(verdict.detail || `HTTP ${response.status}`);
@@ -621,7 +631,7 @@ async function assessAnswer(start, id) {
 
 // Give the transcription connection a moment to finalise the last words of the
 // answer: it settles a beat after the agent's own turn detection fires.
-function settle(start) {
+function settle(from) {
   return new Promise((resolve) => {
     const quick = performance.now() + WORDS_SETTLE_MS;
     // An answer that arrives with no words at all is the expensive failure: it
@@ -629,7 +639,7 @@ function settle(start) {
     // word than for the last is worth the beat it adds.
     const patient = performance.now() + WORDS_SETTLE_MS * 3;
     const tick = () => {
-      const heard = words.some((w) => w.start >= start);
+      const heard = words.length > from;
       const now = performance.now();
       if (heard ? (now - lastWordAt > 250 || now > quick) : now > patient) resolve();
       else setTimeout(tick, 60);
@@ -670,6 +680,7 @@ function addTurn(role, text) {
   if (!text) return;
   turns.push({ role: role === "you" ? "candidate" : "interviewer", text, at: Math.round(clockMs()) });
   if (role === "them") {
+    questionsAsked += 1;
     // The question stays large while it is being answered, and drops into the
     // history only once the interviewer has asked the next one.
     if (held) writeTurn("them", held);
