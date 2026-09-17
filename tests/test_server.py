@@ -22,8 +22,14 @@ def client(tmp_path, monkeypatch):
 
 @pytest.fixture
 def minted(monkeypatch):
-    """Both token calls and the agent creation answered, with the requests recorded."""
-    seen = {"tokens": [], "agents": []}
+    """Both token calls and the agent creation answered, with the requests recorded.
+
+    `readback` is the status the fake returns when the server fetches the agent it
+    just created. A real deployment answered 200 to the creation and then refused
+    the session with "Agent not found", so that fetch is what the server does to
+    catch it before a candidate does.
+    """
+    seen = {"tokens": [], "agents": [], "readbacks": [], "readback": 200}
 
     async def fake_token(client, url, headers, params):
         seen["tokens"].append({"url": url, "headers": headers, "params": params})
@@ -31,6 +37,7 @@ def minted(monkeypatch):
 
     class FakeResponse:
         status_code = 201
+
 
         def __init__(self, payload):
             self._payload = payload
@@ -51,6 +58,12 @@ def minted(monkeypatch):
         async def post(self, url, headers=None, json=None):
             seen["agents"].append({"url": url, "headers": headers, "payload": json})
             return FakeResponse({"id": f"agent-{json['input']['language_codes'][0]}"})
+
+        async def get(self, url, headers=None, params=None):
+            seen["readbacks"].append({"url": url, "headers": headers})
+            found = FakeResponse({"id": url.rsplit("/", 1)[-1]})
+            found.status_code = seen["readback"]
+            return found
 
     monkeypatch.setattr(server, "_token", fake_token)
     monkeypatch.setattr(server.httpx, "AsyncClient", FakeClient)
@@ -372,3 +385,21 @@ def test_the_data_folder_can_be_moved_off_the_container(monkeypatch, tmp_path):
     finally:
         monkeypatch.delenv("PROBE_DATA")
         importlib.reload(server)
+
+
+def test_an_interviewer_that_cannot_be_found_again_is_never_handed_out(client, minted):
+    """This is what a real deployment did: 200 to the creation, and then "Agent not
+    found" the moment the socket opened. The page cannot explain that and cannot
+    recover from it - the candidate sees an interview that will not start while the
+    server log says everything is fine. It is caught here instead."""
+    minted["readback"] = 404
+    refused = client.post("/api/session", json={"language": "en"})
+    assert refused.status_code == 502
+    assert "cannot find again" in refused.json()["detail"]
+    assert "ASSEMBLYAI_API_KEY" in refused.json()["detail"]
+
+
+def test_the_agent_is_read_back_with_the_key_that_made_it(client, minted):
+    client.post("/api/session", json={"language": "en"})
+    assert minted["readbacks"][0]["url"].endswith("/agent-en")
+    assert minted["readbacks"][0]["headers"]["Authorization"] == "long-lived-secret"

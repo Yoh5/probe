@@ -140,6 +140,40 @@ def reports_page() -> FileResponse:
     return FileResponse(ROOT / "static" / "reports.html")
 
 
+@app.get("/api/health")
+async def health() -> dict:
+    """Whether this instance can actually conduct an interview.
+
+    Booleans and HTTP status codes only: no part of the key, and nothing derived
+    from it, ever appears here. It exists because "the page will not start" can
+    mean four different things, and a deployed instance should say which.
+    """
+    key = os.environ.get("ASSEMBLYAI_API_KEY", "")
+    state = {"brief": True, "topics": len(BRIEF["topics"]), "key_present": bool(key),
+             "key_looks_whole": bool(key) and key == key.strip() and not key.startswith(("\"", "'")),
+             "agent": None, "agent_readback": None, "token": None}
+    if not key:
+        return state
+    async with httpx.AsyncClient(timeout=20, verify=tls_context()) as client:
+        try:
+            made = await client.post(AGENTS_URL, headers={"Authorization": key}, json={
+                "name": "Probe health check",
+                "system_prompt": "Say nothing.",
+                "voice": {"voice_id": interview.voice_for("en", BRIEF)},
+            })
+            state["agent"] = made.status_code
+            if made.status_code < 400 and made.json().get("id"):
+                got = await client.get(f"{AGENTS_URL}/{made.json()['id']}",
+                                       headers={"Authorization": key})
+                state["agent_readback"] = got.status_code
+            minted = await client.get(AGENT_TOKEN_URL, headers={"Authorization": f"Bearer {key}"},
+                                      params={"expires_in_seconds": 60})
+            state["token"] = minted.status_code
+        except httpx.HTTPError as error:
+            state["error"] = type(error).__name__
+    return state
+
+
 @app.get("/api/interview")
 def brief() -> dict:
     """What the page may show: the role, the languages, and how many parts there are.
@@ -227,6 +261,19 @@ async def _agent_id(client: httpx.AsyncClient, key: str, language: str) -> str:
     agent_id = response.json().get("id")
     if not agent_id:
         raise HTTPException(502, "AssemblyAI answered without an agent id")
+
+    # Read it back before handing the id to a browser. Creating an agent and then
+    # being told "Agent not found" when the socket opens is a failure the page
+    # cannot explain and cannot recover from: the candidate sees an interview that
+    # will not start, and the server log says 200.
+    try:
+        check = await client.get(f"{AGENTS_URL}/{agent_id}", headers={"Authorization": key})
+    except httpx.HTTPError as error:
+        raise HTTPException(502, f"AssemblyAI unreachable: {type(error).__name__}")
+    if check.status_code >= 400:
+        raise HTTPException(502, f"AssemblyAI created an interviewer it cannot find again "
+                                 f"({check.status_code}); check that ASSEMBLYAI_API_KEY is the "
+                                 f"whole key, with no quotes or spaces around it")
     AGENTS[language] = agent_id
     return agent_id
 
