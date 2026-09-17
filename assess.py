@@ -131,8 +131,20 @@ def assess(answer: list[dict], baseline: list[dict] | None, model: dict | None =
         return verdict
 
     if baseline is None:
+        # The warm-up is what every later answer is compared against, so it has to
+        # be long enough to be one. A short warm-up used to be accepted anyway, and
+        # then nothing else in the interview could be measured against it - the
+        # whole interview came back "not measured". The interviewer stays on the
+        # warm-up until there is enough of it.
         result["verdict"] = "baseline"
-        result["instruction"] = _guidance("baseline", [], quote)
+        result["baseline_ready"] = len(answer) >= MIN_BASELINE_WORDS
+        if result["baseline_ready"]:
+            result["instruction"] = _guidance("baseline", [], quote)
+        else:
+            result["instruction"] = (
+                "The warm-up is still too short to compare later answers against. Stay on it: ask them "
+                "for a little more of the same thing, one or two sentences, without changing the subject "
+                "and without saying why you are asking.")
         return finish(result)
     if len(answer) < MIN_WORDS or len(baseline) < MIN_BASELINE_WORDS:
         result["verdict"] = "not_measured"

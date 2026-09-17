@@ -4,190 +4,13 @@
   <meta charset="utf-8">
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#EAE7E0">
+  <meta name="theme-color" content="#FFFFFF">
   <title>Probe - a spoken interview</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-  <style>
-    /* Probe is a transcript being written while you speak: stone paper, one raised
-       sheet carrying the question, and two voices that keep their colours
-       everywhere - plum is the interviewer, teal is the candidate. Red belongs to
-       the clock alone, so it means one thing when it appears. */
-    :root {
-      --paper: #EAE7E0;
-      --sheet: #F6F4F0;
-      --ink: #1B1815;
-      --soft: #6B6259;
-      --rule: #D3CEC4;
-      --them: #5B2A4E;
-      --you: #125C55;
-      --urgent: #A8291F;
-      --serif: "Newsreader", Georgia, serif;
-      --sans: "Instrument Sans", system-ui, sans-serif;
-      color-scheme: light;
-    }
-    * { box-sizing: border-box; }
-    html, body { height: 100%; }
-    body {
-      margin: 0; background: var(--paper); color: var(--ink);
-      font: 16px/1.55 var(--sans); -webkit-font-smoothing: antialiased;
-      display: flex; justify-content: center;
-    }
-
-    /* The surfaces nobody draws still belong to the page. */
-    ::selection { background: var(--them); color: var(--sheet); }
-    a { color: var(--them); text-underline-offset: 3px; text-decoration-thickness: 1px; }
-    .transcript { scrollbar-width: thin; scrollbar-color: var(--rule) transparent; }
-    .transcript::-webkit-scrollbar { width: 6px; }
-    .transcript::-webkit-scrollbar-track { background: transparent; }
-    .transcript::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
-
-    .page {
-      width: 100%; max-width: 580px; min-height: 100dvh;
-      display: flex; flex-direction: column;
-      padding: 24px 22px max(24px, env(safe-area-inset-bottom));
-    }
-
-    /* A navigation bar, not a signature in the corner: the mark and the name sit
-       on the top rule the way they do on every other page of the product. */
-    .nav {
-      display: flex; align-items: center; gap: 10px;
-      padding-bottom: 14px; border-bottom: 1px solid var(--rule);
-    }
-    .mark {
-      width: 24px; height: 24px; border-radius: 7px; flex: none;
-      background: var(--them); color: var(--sheet);
-      display: grid; place-items: center;
-    }
-    .mark svg { width: 15px; height: 15px; }
-    .name { font: 600 17px/1 var(--sans); letter-spacing: -0.01em; }
-    .role { margin-left: auto; color: var(--soft); font-size: 13.5px; text-align: right; }
-    /* Six language names do not fit beside a wordmark on a phone, so they get
-       their own row and read left to right like everything else. */
-    .languages { display: flex; gap: 18px 20px; flex-wrap: wrap; padding-top: 14px; }
-    .languages button {
-      position: relative; background: none; border: 0; padding: 0 0 4px; cursor: pointer;
-      color: var(--soft); font: 500 14px/1 var(--sans);
-      border-bottom: 2px solid transparent;
-    }
-    /* The mark stays tight under the word; the thumb gets the block around it. */
-    .languages button::after { content: ""; position: absolute; inset: -10px -7px; }
-    .languages button[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--them); }
-    .languages button:hover { color: var(--ink); }
-
-    .screen { display: flex; flex-direction: column; flex: 1; padding-top: 28px; justify-content: center; }
-    #screen-interview { justify-content: flex-start; padding-top: 20px; }
-    .screen[hidden] { display: none; }
-
-    h1 {
-      font: 400 clamp(33px, 8.5vw, 43px)/1.1 var(--serif);
-      letter-spacing: -0.012em; margin: 0 0 14px; max-width: 16ch; text-wrap: balance;
-    }
-    .lede { color: var(--soft); margin: 0; max-width: 44ch; }
-
-    .terms { border-top: 1px solid var(--rule); padding-top: 18px; margin-top: 30px; }
-    .terms p { margin: 0 0 10px; color: var(--soft); font-size: 14.5px; max-width: 46ch; }
-    .terms b { color: var(--ink); font-weight: 600; }
-
-    .go {
-      width: 100%; margin-top: 22px; min-height: 58px; padding: 0 22px;
-      background: var(--them); color: var(--sheet); border: 0; border-radius: 3px;
-      font: 600 17px/1 var(--sans); cursor: pointer;
-      display: inline-flex; align-items: center; justify-content: center; gap: 12px;
-      transition: background .15s ease, transform .08s ease;
-    }
-    .go:hover { background: #46203C; }
-    .go:active { transform: translateY(1px); }
-    /* --soft on --rule is 3.8:1, and a control nobody can press is still a
-       control people have to read. */
-    .go:disabled { background: var(--rule); color: #56504A; cursor: default; }
-    .ghost {
-      width: 100%; min-height: 50px; margin-top: 18px; background: none; cursor: pointer;
-      color: var(--soft); border: 1px solid var(--rule); border-radius: 3px; font: 500 15px/1 var(--sans);
-    }
-    .ghost:hover { color: var(--ink); border-color: var(--soft); }
-    button:focus-visible { outline: 2px solid var(--them); outline-offset: 3px; }
-    .hint { color: var(--soft); font-size: 13.5px; margin: 12px 0 0; text-align: center; }
-    .report-link { display: inline-block; margin-top: 20px; font-size: 15px; }
-
-    /* -- the interview ------------------------------------------------------- */
-
-    /* Where the candidate has got to, and how long this answer may run. The parts
-       are ticks rather than a filling bar because the interview really is made of
-       parts, and a bar would invent a precision it does not have. */
-    .strip {
-      display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
-      padding-bottom: 14px; border-bottom: 1px solid var(--rule);
-    }
-    .stage { color: var(--soft); font-size: 13.5px; }
-    .marks { display: flex; gap: 5px; margin-top: 8px; }
-    .marks i { width: 26px; height: 3px; background: var(--rule); border-radius: 2px; }
-    .marks i.done { background: var(--them); }
-    .clock { display: flex; align-items: baseline; gap: 7px; margin: 0; font-variant-numeric: tabular-nums; }
-    .clock[hidden] { display: none; }
-    .clock-time { font: 600 19px/1 var(--sans); color: var(--ink); }
-    .clock-label { color: var(--soft); font-size: 12.5px; }
-    .clock.urgent .clock-time, .clock.urgent .clock-label { color: var(--urgent); }
-
-    /* The question sits on its own sheet: it is the one thing on screen that has
-       to stay readable while someone is busy thinking about the answer. */
-    .sheet {
-      background: var(--sheet); border: 1px solid var(--rule); border-radius: 3px;
-      padding: 20px 20px 18px; margin-top: 18px;
-    }
-    .said {
-      font: 400 clamp(21px, 5.4vw, 27px)/1.28 var(--serif);
-      letter-spacing: -0.008em; margin: 0; text-wrap: pretty;
-    }
-    /* One circle whose ring grows with the level actually being sent. If it
-       moves, the microphone is hearing you - which is the only thing a candidate
-       needs to know about the audio. The box is sized for the ring at full level
-       so a loud answer never pushes the label below it. */
-    .listen { display: flex; flex-direction: column; align-items: center; margin: 22px 0 0; }
-    .mic { --level: 0; position: relative; width: 108px; height: 108px; display: grid; place-items: center; }
-    .mic::before {
-      content: ""; position: absolute; inset: 16px; border-radius: 50%;
-      background: color-mix(in srgb, var(--you) 20%, transparent);
-      transform: scale(calc(1 + var(--level) * 0.34));
-      transition: transform 90ms linear, background .3s;
-    }
-    .mic .core {
-      position: relative; width: 60px; height: 60px; border-radius: 50%;
-      background: var(--you); color: var(--sheet);
-      display: grid; place-items: center; transition: background .3s;
-    }
-    .mic .core svg { width: 26px; height: 26px; }
-    /* While the interviewer talks the ring belongs to it, and stops moving. */
-    .mic.speaking::before { background: color-mix(in srgb, var(--them) 20%, transparent); transform: none; }
-    .mic.speaking .core { background: var(--them); }
-    .status { color: var(--soft); font-size: 13.5px; margin: 6px 0 0; text-align: center; min-height: 1.4em; }
-    @media (prefers-reduced-motion: reduce) { .mic::before { transition: background .3s; transform: none; } }
-
-    /* Set like a script: the speaker runs into their own line in their own colour,
-       so the attribution costs no extra row and never falls below contrast. */
-    .transcript {
-      flex: 1; overflow-y: auto; margin: 20px 0 0; padding-top: 16px;
-      border-top: 1px solid var(--rule); display: flex; flex-direction: column; gap: 13px;
-    }
-    .turn { margin: 0; font-size: 15px; line-height: 1.5; color: var(--soft); }
-    .turn + .turn { border-top: 1px solid var(--rule); padding-top: 13px; }
-    .turn span { font-weight: 600; color: var(--them); margin-right: .5em; }
-    .turn.you { color: var(--ink); }
-    .turn.you span { color: var(--you); }
-
-    .center { flex: 1; display: flex; flex-direction: column; justify-content: center; }
-    .center h1 { max-width: 18ch; }
-    .error-fix { color: var(--soft); font-size: 14.5px; margin: 14px 0 0; max-width: 44ch; }
-    .spinner {
-      width: 17px; height: 17px; border-radius: 50%;
-      border: 2px solid rgba(246, 244, 240, .35); border-top-color: var(--sheet);
-      animation: spin .7s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
-  </style>
+  <link rel="stylesheet" href="/static/probe.css">
 </head>
 <body>
 <div class="page">
@@ -202,12 +25,24 @@
   <section class="screen" id="screen-welcome">
     <h1 id="t-title">A conversation, not a form.</h1>
     <p class="lede" id="t-lede">Five minutes, out loud. The interviewer listens, answers, and asks what comes next from what you say.</p>
-    <div class="terms">
-      <p id="t-terms-1"><b>Your voice is transcribed as you speak</b> by AssemblyAI. The audio itself is not kept.</p>
-      <p id="t-terms-2">The transcript is kept and used to prepare a report for the recruiter. It suggests what to ask next; it never decides anything on its own.</p>
-      <button class="go" id="start" disabled><span id="t-start">I agree, start the interview</span></button>
-      <p class="hint" id="t-hint">Headphones keep the interviewer's voice out of your microphone.</p>
+
+    <div class="group" role="list">
+      <div class="row" role="listitem">
+        <span class="tile you" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
+        <p class="text"><span id="t-terms-1">Your voice is transcribed as you speak</span><span class="detail" id="t-terms-1b">By AssemblyAI. The audio itself is not kept.</span></p>
+      </div>
+      <div class="row" role="listitem">
+        <span class="tile brand" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 4h9l4 4v12H6z"/><path d="M9.5 12h6M9.5 16h4"/></svg></span>
+        <p class="text"><span id="t-terms-2">The transcript goes to the recruiter</span><span class="detail" id="t-terms-2b">It suggests what to ask next; it never decides anything on its own.</span></p>
+      </div>
+      <div class="row" role="listitem">
+        <span class="tile flag" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5l3 1.8"/></svg></span>
+        <p class="text"><span id="t-terms-3">Ninety seconds for each answer</span><span class="detail" id="t-terms-3b">The countdown is on screen. Take all of it if you need it.</span></p>
+      </div>
     </div>
+
+    <button class="go" id="start" disabled><span id="t-start">I agree, start the interview</span></button>
+    <p class="hint" id="t-hint">Headphones keep the interviewer's voice out of your microphone.</p>
   </section>
 
   <!-- 2. The interview -->
@@ -222,7 +57,7 @@
         <span class="clock-label" id="clock-label"></span>
       </p>
     </div>
-    <div class="sheet">
+    <div class="card sheet">
       <p class="said" id="said"></p>
     </div>
     <div class="listen">

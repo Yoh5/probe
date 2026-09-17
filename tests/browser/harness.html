@@ -23,6 +23,8 @@ let socket = null;      // the page's agent websocket
 let assessCalls = 0;
 let lastAsked = null;
 let outOfQuestions = false;
+let buildingBaseline = false;
+const assessed = [];
 
 // -- time ------------------------------------------------------------------------
 const realNow = performance.now.bind(performance);
@@ -63,6 +65,11 @@ window.fetch = async (url, options) => {
   if (url === "/api/assess") {
     assessCalls += 1;
     lastAsked = body.asked;
+    assessed.push({ words: (body.answer_words || []).length, baseline: body.baseline_words });
+    if (buildingBaseline) {
+      return reply({ verdict: "baseline", baseline_ready: false, instruction: "Stay on the warm-up.",
+                     words: (body.answer_words || []).length, last: false });
+    }
     return reply({ verdict: "spontaneous", instruction: "Move the interview forward.",
                    words: (body.answer_words || []).length, last: outOfQuestions });
   }
@@ -74,11 +81,26 @@ Object.defineProperty(navigator, "mediaDevices", {
   value: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) },
 });
 class FakePort { postMessage() {} }
+const ports = {};
 class FakeNode {
-  constructor() { this.port = new FakePort(); }
+  constructor(context, name) { this.port = new FakePort(); ports[name || "node"] = this.port; }
   connect() {} disconnect() {}
 }
 window.AudioWorkletNode = FakeNode;
+
+// The audio clock the page keeps is driven by how much audio it has SENT, so a
+// harness that sends none leaves every answer starting at zero - and an answer
+// window that never moves hides exactly the bugs this file is here to catch.
+const CHUNK_MS = 1200 / 24000 * 1000;      // the worklet's 1200-sample chunk at 24 kHz
+let audioMs = 0;
+function speak(ms) {
+  const port = ports["pcm-chunker"];
+  const chunks = Math.round(ms / CHUNK_MS);
+  for (let i = 0; i < chunks; i++) {
+    port?.onmessage?.({ data: new Float32Array(1200).fill(0.15) });
+    audioMs += CHUNK_MS;
+  }
+}
 window.AudioContext = class {
   constructor() { this.audioWorklet = { addModule: async () => {} }; this.destination = new FakeNode(); }
   createMediaStreamSource() { return new FakeNode(); }
@@ -93,10 +115,25 @@ const lastOfType = (type) => [...sent].reverse().find((m) => m.type === type);
 const toolResults = () => sent.filter((m) => m.type === "tool.result");
 const agent = (message) => window.handleAgent(message);
 
+// Words arriving on the transcription connection, the way the real one delivers
+// them: finalised turns, with timings on the audio clock.
+function heard(count) {
+  const words = [];
+  let at = audioMs;
+  for (let i = 0; i < count; i++) {
+    words.push({ text: `w${i}`, start: at, end: at + 200, confidence: 0.95 });
+    at += 260;
+  }
+  window.sttHeard(words);
+}
+
 // A full agent turn: it says something, then hands the floor over.
 function agentSays(text) {
   agent({ type: "reply.started" });
   agent({ type: "transcript.agent", text });
+  // The microphone streams throughout, including while the interviewer talks, so
+  // the audio clock keeps moving and the next answer starts after this one.
+  speak(1200);
   agent({ type: "reply.done", status: "completed" });
 }
 
@@ -179,6 +216,28 @@ async function run() {
   const shown = clock.hidden === false && /\d/.test(document.getElementById("clock-time").textContent);
   check("the candidate can see how long the answer may run", shown,
     `hidden=${clock.hidden} text=${document.getElementById("clock-time").textContent}`);
+
+  // 6b. A warm-up too short to compare against keeps gathering: what is sent for
+  //     assessment grows, instead of the interview settling on a baseline that
+  //     makes every later answer unmeasurable.
+  buildingBaseline = true;
+  const mark2 = assessed.length;
+  for (const count of [4, 5]) {
+    agentSays("Tell me a bit more.");        // the floor changes hands: a new answer window
+    agent({ type: "input.speech.started" });
+    speak(2000);                             // two seconds of the candidate talking
+    heard(count);
+    agent({ type: "input.speech.stopped" });
+    agent({ type: "tool.call", name: "assess_answer", call_id: `warm-${count}`, arguments: { topic_id: "warmup", claim: "x" } });
+    await wait(4000);
+  }
+  const built = assessed.slice(mark2);
+  check("each answer is measured on its own words, not on the whole interview",
+    built.length === 2 && built[0].words === 4, JSON.stringify(built));
+  check("a short warm-up keeps gathering instead of settling for too little",
+    built.length === 2 && built[1].words === 9 && built.every((a) => a.baseline === null),
+    JSON.stringify(built));
+  buildingBaseline = false;
 
   // 7. The interview counts its own questions, and stops when they run out even
   //    if the interviewer would rather ask another.

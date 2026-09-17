@@ -42,43 +42,49 @@ const LAST_WORD_MS = 25000;
 
 const COPY = {
   en: { title: "A conversation, not a form.", lede: "Five minutes, out loud. The interviewer listens, answers, and asks what comes next from what you say.",
-        terms1: "<b>Your voice is transcribed as you speak</b> by AssemblyAI. The audio itself is not kept.",
-        terms2: "The transcript is kept and used to prepare a report for the recruiter. It suggests what to ask next; it never decides anything on its own.",
+        terms1: "Your voice is transcribed as you speak", terms1b: "By AssemblyAI. The audio itself is not kept.",
+        terms2: "The transcript goes to the recruiter", terms2b: "It suggests what to ask next; it never decides anything on its own.",
+        terms3: "Ninety seconds for each answer", terms3b: "The countdown is on screen. Take all of it if you need it.",
         start: "I agree, start the interview", hint: "Headphones keep the interviewer's voice out of your microphone.",
         listening: "Listening", thinking: "Take your time", speaking: "The interviewer is speaking", connecting: "Connecting", you: "You", them: "Interviewer",
         finish: "End the interview", budget: "to answer", stage: "Part {n} of {total}", saving: "Saving the interview", savingLede: "A few seconds. Keep this page open.",
         done: "Thank you. That's everything.", doneLede: "The recruiter has your interview and will be in touch.", retry: "Try again" },
   fr: { title: "Une conversation, pas un formulaire.", lede: "Cinq minutes, à voix haute. L'entretien écoute, répond, et enchaîne à partir de ce que vous dites.",
-        terms1: "<b>Votre voix est transcrite au fil de la parole</b> par AssemblyAI. L'audio n'est pas conservé.",
-        terms2: "La transcription est conservée et sert à préparer un compte rendu pour le recruteur. Elle suggère quoi demander ensuite ; elle ne décide jamais rien seule.",
+        terms1: "Votre voix est transcrite au fil de la parole", terms1b: "Par AssemblyAI. L'audio n'est pas conservé.",
+        terms2: "La transcription est remise au recruteur", terms2b: "Elle suggère quoi demander ensuite ; elle ne décide jamais rien seule.",
+        terms3: "Quatre-vingt-dix secondes par réponse", terms3b: "Le compte à rebours est à l'écran. Prenez-les toutes s'il le faut.",
         start: "J'accepte, commencer l'entretien", hint: "Un casque évite que la voix de l'entretien entre dans votre micro.",
         listening: "À vous", thinking: "Prenez votre temps", speaking: "L'entretien parle", connecting: "Connexion", you: "Vous", them: "Entretien",
         finish: "Terminer l'entretien", budget: "pour répondre", stage: "Partie {n} sur {total}", saving: "Enregistrement de l'entretien", savingLede: "Quelques secondes. Gardez cette page ouverte.",
         done: "Merci, c'est terminé.", doneLede: "Le recruteur a votre entretien et vous recontactera.", retry: "Réessayer" },
   es: { title: "Una conversación, no un formulario.", lede: "Cinco minutos, en voz alta. La entrevista escucha, responde y sigue con lo que usted dice.",
-        terms1: "<b>Su voz se transcribe mientras habla</b> con AssemblyAI. El audio no se conserva.",
-        terms2: "La transcripción se conserva y sirve para preparar un informe para el reclutador. Sugiere qué preguntar después; nunca decide nada por sí sola.",
+        terms1: "Su voz se transcribe mientras habla", terms1b: "Con AssemblyAI. El audio no se conserva.",
+        terms2: "La transcripción se entrega al reclutador", terms2b: "Sugiere qué preguntar después; nunca decide nada por sí sola.",
+        terms3: "Noventa segundos por respuesta", terms3b: "La cuenta atrás está en pantalla. Tómelos todos si hace falta.",
         start: "Acepto, empezar la entrevista", hint: "Los auriculares evitan que la voz de la entrevista entre en su micrófono.",
         listening: "Le escucho", thinking: "Tómese su tiempo", speaking: "La entrevista habla", connecting: "Conectando", you: "Usted", them: "Entrevista",
         finish: "Terminar la entrevista", budget: "para responder", stage: "Parte {n} de {total}", saving: "Guardando la entrevista", savingLede: "Unos segundos. Mantenga esta página abierta.",
         done: "Gracias, eso es todo.", doneLede: "El reclutador tiene su entrevista y se pondrá en contacto.", retry: "Reintentar" },
   de: { title: "Ein Gespräch, kein Formular.", lede: "Fünf Minuten, laut gesprochen. Das Gespräch hört zu, antwortet und knüpft an Ihre Worte an.",
-        terms1: "<b>Ihre Stimme wird beim Sprechen transkribiert</b> von AssemblyAI. Das Audio wird nicht gespeichert.",
-        terms2: "Das Transkript wird gespeichert und dient einem Bericht für die Recruiterin oder den Recruiter. Es schlägt vor, was als Nächstes zu fragen ist; es entscheidet nie allein.",
+        terms1: "Ihre Stimme wird beim Sprechen transkribiert", terms1b: "Von AssemblyAI. Das Audio wird nicht gespeichert.",
+        terms2: "Das Transkript geht an die Recruiterin oder den Recruiter", terms2b: "Es schlägt vor, was als Nächstes zu fragen ist; es entscheidet nie allein.",
+        terms3: "Neunzig Sekunden pro Antwort", terms3b: "Der Countdown steht auf dem Bildschirm. Nehmen Sie sich die Zeit.",
         start: "Einverstanden, Gespräch starten", hint: "Kopfhörer halten die Stimme des Gesprächs aus Ihrem Mikrofon.",
         listening: "Sie sind dran", thinking: "Lassen Sie sich Zeit", speaking: "Das Gespräch spricht", connecting: "Verbindung", you: "Sie", them: "Gespräch",
         finish: "Gespräch beenden", budget: "zum Antworten", stage: "Teil {n} von {total}", saving: "Gespräch wird gespeichert", savingLede: "Ein paar Sekunden. Lassen Sie die Seite offen.",
         done: "Danke, das war alles.", doneLede: "Das Gespräch liegt vor und man meldet sich bei Ihnen.", retry: "Erneut versuchen" },
   it: { title: "Una conversazione, non un modulo.", lede: "Cinque minuti, ad alta voce. Il colloquio ascolta, risponde e prosegue da ciò che dice.",
-        terms1: "<b>La sua voce viene trascritta mentre parla</b> da AssemblyAI. L'audio non viene conservato.",
-        terms2: "La trascrizione viene conservata e serve a preparare un resoconto per il selezionatore. Suggerisce cosa chiedere dopo; non decide mai nulla da sola.",
+        terms1: "La sua voce viene trascritta mentre parla", terms1b: "Da AssemblyAI. L'audio non viene conservato.",
+        terms2: "La trascrizione va al selezionatore", terms2b: "Suggerisce cosa chiedere dopo; non decide mai nulla da sola.",
+        terms3: "Novanta secondi per ogni risposta", terms3b: "Il conto alla rovescia è sullo schermo. Li prenda tutti se serve.",
         start: "Accetto, iniziare il colloquio", hint: "Le cuffie tengono la voce del colloquio fuori dal microfono.",
         listening: "A lei", thinking: "Con calma", speaking: "Il colloquio parla", connecting: "Connessione", you: "Lei", them: "Colloquio",
         finish: "Terminare il colloquio", budget: "per rispondere", stage: "Parte {n} di {total}", saving: "Salvataggio del colloquio", savingLede: "Pochi secondi. Tenga aperta la pagina.",
         done: "Grazie, è tutto.", doneLede: "Il selezionatore ha il colloquio e la ricontatterà.", retry: "Riprovare" },
   pt: { title: "Uma conversa, não um formulário.", lede: "Cinco minutos, em voz alta. A entrevista ouve, responde e continua a partir do que você diz.",
-        terms1: "<b>A sua voz é transcrita enquanto fala</b> pela AssemblyAI. O áudio não é guardado.",
-        terms2: "A transcrição é guardada e serve para preparar um relatório para o recrutador. Sugere o que perguntar a seguir; nunca decide nada sozinha.",
+        terms1: "A sua voz é transcrita enquanto fala", terms1b: "Pela AssemblyAI. O áudio não é guardado.",
+        terms2: "A transcrição vai para o recrutador", terms2b: "Sugere o que perguntar a seguir; nunca decide nada sozinha.",
+        terms3: "Noventa segundos para cada resposta", terms3b: "A contagem está no ecrã. Use-a toda se precisar.",
         start: "Aceito, começar a entrevista", hint: "Auscultadores evitam que a voz da entrevista entre no seu microfone.",
         listening: "É consigo", thinking: "Não tenha pressa", speaking: "A entrevista fala", connecting: "A ligar", you: "Você", them: "Entrevista",
         finish: "Terminar a entrevista", budget: "para responder", stage: "Parte {n} de {total}", saving: "A guardar a entrevista", savingLede: "Alguns segundos. Mantenha esta página aberta.",
@@ -94,7 +100,8 @@ let samplesSent = 0;
 let words = [];            // every final word from the transcription connection
 let lastWordAt = 0;
 let answerStartMs = 0;     // audio clock at the end of the agent's last reply
-let baselineWords = null;  // the warm-up answer: what later answers are compared to
+let baselineWords = null;  // the warm-up, once it is long enough to compare against
+let warmupWords = [];      // what has been said in the warm-up so far, while it is still short
 let turns = [];
 let assessments = [];
 let pendingResults = [];
@@ -144,8 +151,10 @@ function applyCopy() {
   document.documentElement.lang = language;
   $("t-title").textContent = text.title;
   $("t-lede").textContent = text.lede;
-  $("t-terms-1").innerHTML = text.terms1;   // one bolded clause, written above, no user input
-  $("t-terms-2").textContent = text.terms2;
+  for (const n of [1, 2, 3]) {
+    $(`t-terms-${n}`).textContent = text[`terms${n}`];
+    $(`t-terms-${n}b`).textContent = text[`terms${n}b`];
+  }
   $("t-start").textContent = text.start;
   $("t-hint").textContent = text.hint;
   $("finish").textContent = text.finish;
@@ -258,11 +267,13 @@ function openTranscription(token) {
   sttWs.onmessage = (event) => {
     const message = JSON.parse(event.data);
     // Only finalised turns carry settled timings; partials would be counted twice.
-    if (message.type === "Turn" && message.end_of_turn) {
-      for (const word of message.words || []) words.push(word);
-      lastWordAt = performance.now();
-    }
+    if (message.type === "Turn" && message.end_of_turn) sttHeard(message.words);
   };
+}
+
+function sttHeard(heard) {
+  for (const word of heard || []) words.push(word);
+  lastWordAt = performance.now();
 }
 
 // -- audio -----------------------------------------------------------------------------
@@ -481,8 +492,11 @@ async function handleTool(call) {
   if (call.name !== "assess_answer") return queueResult(call.call_id, { error: "unknown tool" });
 
   const topic = String(call.arguments?.topic_id ?? "warmup");
-  const { warmup, answerWords, verdict } = await assessmentFor();
-  if (warmup && answerWords.length) baselineWords = answerWords;
+  const { building, answerWords, sent, verdict } = await assessmentFor();
+  if (building) {
+    warmupWords = sent;                                   // keep what has been said so far
+    if (verdict.baseline_ready) baselineWords = sent;     // long enough to compare against
+  }
   seen.add(topic);
   renderStage();
   // answer_words, not words: the verdict carries a word COUNT under that name and
@@ -524,20 +538,23 @@ function assessmentFor() {
 }
 
 async function assessAnswer(start, id) {
-  const warmup = !baselineWords;
+  const building = !baselineWords;
   // One assessment per answer, so counting answers counts questions asked. Keyed
   // on the turn, so an assessment redone after a thinking pause does not count
   // the question twice.
   answered.add(id);
   const asked = answered.size;
-  await settle();
+  await settle(start);
   const answerWords = words.filter((w) => w.start >= start);
+  // While the baseline is still being gathered, what gets assessed is everything
+  // the candidate has said so far in the warm-up, not just the last sentence.
+  const sent = building ? warmupWords.concat(answerWords) : answerWords;
   let verdict;
   try {
     const response = await fetch("/api/assess", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ answer_words: answerWords, baseline_words: warmup ? null : baselineWords, asked }),
+      body: JSON.stringify({ answer_words: sent, baseline_words: building ? null : baselineWords, asked }),
     });
     verdict = await response.json();
     if (!response.ok) throw new Error(verdict.detail || `HTTP ${response.status}`);
@@ -551,16 +568,22 @@ async function assessAnswer(start, id) {
       error: error.message,
     };
   }
-  return { warmup, answerWords, verdict, seen: words.length };
+  return { building, answerWords, sent, verdict, seen: words.length };
 }
 
 // Give the transcription connection a moment to finalise the last words of the
 // answer: it settles a beat after the agent's own turn detection fires.
-function settle() {
+function settle(start) {
   return new Promise((resolve) => {
-    const deadline = performance.now() + WORDS_SETTLE_MS;
+    const quick = performance.now() + WORDS_SETTLE_MS;
+    // An answer that arrives with no words at all is the expensive failure: it
+    // cannot be compared, and it costs a question. Waiting longer for the first
+    // word than for the last is worth the beat it adds.
+    const patient = performance.now() + WORDS_SETTLE_MS * 3;
     const tick = () => {
-      if (performance.now() - lastWordAt > 250 || performance.now() > deadline) resolve();
+      const heard = words.some((w) => w.start >= start);
+      const now = performance.now();
+      if (heard ? (now - lastWordAt > 250 || now > quick) : now > patient) resolve();
       else setTimeout(tick, 60);
     };
     tick();

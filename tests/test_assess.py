@@ -156,3 +156,30 @@ def test_without_a_limit_nothing_changes():
     assert plain["last"] is False
     assert plain["instruction"] == assess.assess(converted(WRITTEN), converted(CHATTY), MODEL,
                                                  asked=2, limit=8)["instruction"]
+
+
+# -- the baseline has to be long enough to be one -----------------------------------
+
+def test_a_short_warm_up_keeps_the_interviewer_on_the_warm_up():
+    """A warm-up shorter than the minimum used to be accepted as the baseline, and
+    then nothing else in the interview could be compared against it: every later
+    answer came back not_measured. The interviewer stays on it instead."""
+    r = assess.assess(converted("fine thanks"), None, MODEL)
+    assert r["verdict"] == "baseline"
+    assert r["baseline_ready"] is False
+    assert "still too short" in r["instruction"]
+    assert "without changing the subject" in r["instruction"]
+
+
+def test_a_long_enough_warm_up_opens_the_first_topic():
+    r = assess.assess(converted(CHATTY), None, MODEL)
+    assert r["verdict"] == "baseline"
+    assert r["baseline_ready"] is True
+    assert "Open the first topic" in r["instruction"]
+
+
+def test_the_warm_up_is_ready_exactly_at_the_minimum():
+    words = " ".join(f"word{i}" for i in range(assess.MIN_BASELINE_WORDS))
+    assert assess.assess(converted(words), None, MODEL)["baseline_ready"] is True
+    fewer = " ".join(f"word{i}" for i in range(assess.MIN_BASELINE_WORDS - 1))
+    assert assess.assess(converted(fewer), None, MODEL)["baseline_ready"] is False
