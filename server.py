@@ -164,7 +164,11 @@ async def _agent_id(client: httpx.AsyncClient, key: str, language: str) -> str:
             # thinking pauses in it, and a pause is not an ending: at 2.4 s the
             # interviewer was stepping on people mid-thought, which is the one
             # thing that makes an interview feel like a form.
-            "turn_detection": {"min_silence": 5000, "max_silence": 5000, "interrupt_response": True},
+            # AssemblyAI requires min_silence STRICTLY below max_silence, and
+            # rejects the session at connect time - not at agent creation - when it
+            # is not. Equal values passed creation and then closed every socket
+            # with a policy violation, so the interview would not start at all.
+            "turn_detection": {"min_silence": 4800, "max_silence": 5000, "interrupt_response": True},
             "language_codes": [language],
         },
     }

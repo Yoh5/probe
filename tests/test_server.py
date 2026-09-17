@@ -259,3 +259,24 @@ def test_a_nonsense_question_count_is_refused(client):
     for bad in ("many", -1, 2.5):
         body = {"answer_words": aai_words(WRITTEN), "baseline_words": aai_words(CHATTY), "asked": bad}
         assert client.post("/api/assess", json=body).status_code == 422
+
+
+# -- the turn detection the interviewer is created with -----------------------------
+
+def test_the_silence_bounds_are_ones_assemblyai_will_accept(client, minted):
+    """AssemblyAI requires min_silence STRICTLY below max_silence, and enforces it
+    when the socket connects rather than when the agent is created. Equal values
+    passed creation and then closed every session with a policy violation: the
+    interview would not start at all, and nothing on the server said why."""
+    client.post("/api/session", json={"language": "en"})
+    detection = minted["agents"][0]["payload"]["input"]["turn_detection"]
+    assert 0 < detection["min_silence"] < detection["max_silence"] <= 10000
+
+
+def test_the_interviewer_waits_about_five_seconds_before_taking_a_turn(client, minted):
+    """A pause is thinking, not an ending. Anything much under five seconds steps
+    on candidates mid-thought, which is what this was raised from."""
+    client.post("/api/session", json={"language": "en"})
+    detection = minted["agents"][0]["payload"]["input"]["turn_detection"]
+    assert detection["min_silence"] >= 4500
+    assert detection["max_silence"] >= 5000
