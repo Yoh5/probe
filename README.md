@@ -134,6 +134,28 @@ The API key never reaches the browser: the page is handed an agent id and two
 single-use tokens that expire in two minutes. The topics stay on the server —
 a candidate who could read them could prepare for them.
 
+## What was written before this hackathon
+
+Probe was built for the AssemblyAI Voice Agent Hackathon (1–30 September 2026) and
+its git history starts on 16 September. Two files in it were not written during the
+hackathon, and they are named here rather than left to be discovered:
+
+| File | Lines | Where it comes from |
+|---|---|---|
+| `features.py` | 204 | copied unchanged from [Unscripted](https://github.com/Yoh5/unscripted), my own earlier open-source project |
+| `detector.py` | 57 | copied unchanged from the same place |
+| `detector.json` | — | the fitted model itself: 20 labelled answers from one speaker, frozen on 14 September |
+
+That is 261 of about 3,000 lines. Everything else — the voice loop, the two
+AssemblyAI connections, the turn-taking, `assess.py`, `interview.py`, `invites.py`,
+`report.py`, the server, both pages and 128 tests — was written for this hackathon.
+
+Unscripted was submitted to a different hackathon. Probe is not a resubmission of
+it: Unscripted asks a fixed list of questions and reports afterwards whether the
+answers sounded read. Probe uses the same measurement live, inside the
+conversation, to decide what to ask next. The shared part is the signal library and
+the frozen model, in the way any project shares a library.
+
 ## Tests
 
 ```bash
