@@ -357,3 +357,18 @@ def test_an_interview_is_saved_even_if_its_invitation_has_vanished(client, minte
     saved = client.post("/api/sessions", json={"turns": [], "invite": "b" * 32})
     assert saved.status_code == 200
     assert client.get(f"/api/report/{saved.json()['id']}").status_code == 200
+
+
+def test_the_data_folder_can_be_moved_off_the_container(monkeypatch, tmp_path):
+    """A hosted instance writes to a mounted disk. Without that, a link sent to a
+    candidate stops working the next time anything ships, because the container's
+    own filesystem is wiped on every deploy."""
+    monkeypatch.setenv("PROBE_DATA", str(tmp_path))
+    import importlib
+    reloaded = importlib.reload(server)
+    try:
+        assert reloaded.SESSIONS_DIR == tmp_path / "sessions"
+        assert reloaded.INVITES_DIR == tmp_path / "invites"
+    finally:
+        monkeypatch.delenv("PROBE_DATA")
+        importlib.reload(server)

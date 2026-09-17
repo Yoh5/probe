@@ -41,8 +41,12 @@ import report
 ROOT = Path(__file__).parent
 load_dotenv(ROOT / ".env")
 
-SESSIONS_DIR = ROOT / "sessions"
-INVITES_DIR = ROOT / "invites"
+# Where interviews and invitations are kept. A hosted instance runs on a container
+# whose filesystem is wiped on every deploy, so this points at a mounted disk
+# there. Locally it is just a folder next to the code.
+DATA_DIR = Path(os.environ.get("PROBE_DATA", ROOT))
+SESSIONS_DIR = DATA_DIR / "sessions"
+INVITES_DIR = DATA_DIR / "invites"
 MAX_SESSION_BYTES = 4_000_000
 SESSION_ID = re.compile(r"^\d{8}T\d{6}Z-[0-9a-f]{8}$")
 

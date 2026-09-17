@@ -1,0 +1,37 @@
+# Render blueprint for the hosted demo. Nothing secret lives here: the AssemblyAI
+# key is marked sync: false, so Render asks for it in its dashboard and it never
+# enters the repository.
+services:
+  - type: web
+    name: probe
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    # The brief is read and validated at startup, so a server that answers here at
+    # all is a server with an interview it can actually conduct.
+    healthCheckPath: /api/interview
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: ASSEMBLYAI_API_KEY
+        sync: false
+
+# A note on storage, because it is a real trade and not an oversight.
+#
+# Interviews and invitations are written to disk, and a free instance has no
+# persistent one: its filesystem is wiped when it redeploys or wakes from sleep.
+# A candidate's link, and the report it produced, do not survive that. For a demo
+# anyone can try end to end in one sitting, that is fine.
+#
+# To keep them, move to a paid instance and uncomment the three lines below - a
+# disk is not available on the free plan:
+#
+#     plan: starter
+#     envVars:
+#       - key: PROBE_DATA
+#         value: /var/probe
+#     disk:
+#       name: probe-data
+#       mountPath: /var/probe
+#       sizeGB: 1

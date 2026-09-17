@@ -4,4 +4,6 @@ httpx>=0.27
 websockets>=13
 python-dotenv>=1.0
 truststore>=0.9
+
+# Tests only; harmless on the server, and it keeps one file to install from.
 pytest>=8

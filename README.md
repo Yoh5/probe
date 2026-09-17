@@ -83,6 +83,44 @@ Unscripted tells you afterwards. Probe does something about it during.
   the story fifty times, or because that is simply how they speak. Probe cannot
   tell those apart, and says so on every report it produces.
 
+## What it is worth
+
+A company posting one engineering role gets two or three hundred applications and
+ends up with about twenty-five worth qualifying. Today that costs one of two
+things.
+
+**A screening call.** Twenty-five conversations of half an hour is twelve and a
+half hours of recruiter time for one role, before counting the scheduling and the
+people who do not turn up.
+
+**A one-way video round.** Cheap to run and broken in two known ways: the
+questions are fixed, so they end up on Glassdoor and the answers come back
+rehearsed; and the recruiter still has to watch two hours of video at walking
+pace, because video cannot be skimmed, searched or quoted.
+
+What Probe changes:
+
+- **The questions cannot leak, because they do not exist yet.** One is written in
+  advance. The rest are made out of what the candidate just said.
+- **The output is text.** Two hours of video becomes twenty-five reports that open
+  on two lines each - what to dig into - and a transcript that can be searched,
+  quoted, and attached to an ATS.
+- **The human interview gets better, not skipped.** The recruiter arrives at the
+  real conversation already knowing where to press. Thirty minutes of signal
+  instead of ten.
+- **No scheduling.** The candidate picks the moment.
+- **Six languages.** The candidate answers in their own.
+
+For the candidate: five minutes instead of a half-hour call on a Tuesday
+afternoon, and a conversation where someone asks about what they actually said.
+No camera either - no appearance, no background, no framing. That is one channel
+of bias removed, not all of them: a voice still carries an accent.
+
+The strongest case is not filtering people out. **It is finding the ones a CV
+hides** - a career change, a school nobody has heard of - who never get the
+half-hour call, and who go three questions deep the moment someone asks them
+about something they really built.
+
 ## Who it is for
 
 A team screening more applicants than it has interviewer-hours, that has tried the
