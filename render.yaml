@@ -16,6 +16,15 @@ services:
         value: "3.12.7"
       - key: ASSEMBLYAI_API_KEY
         sync: false
+      # Which AssemblyAI region the interviewer is created in, and which socket the
+      # page is told to open. Both have to be the same one: an agent belongs to the
+      # region it was made in, and left implicit that region is wherever the caller
+      # happens to be. A server in Oregon then creates its interviewer in the US
+      # while a candidate in Europe looks for it in the EU, and the session is
+      # refused with "Agent not found" while every REST call answered 201 and 200.
+      # Set this to the region your candidates are in - us or eu.
+      - key: PROBE_REGION
+        value: eu
 
 # A note on storage, because it is a real trade and not an oversight.
 #

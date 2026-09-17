@@ -17,7 +17,6 @@
 // in a stored agent at AssemblyAI, not in this file, so they cannot be read from
 // the page either.
 
-const AGENT_URL = "wss://agents.assemblyai.com/v1/ws";
 const STT_URL = "wss://streaming.assemblyai.com/v3/ws";
 const RATE = 24000;
 // How long to wait for the transcription connection to finish the last words of
@@ -284,7 +283,10 @@ async function start() {
 }
 
 function openAgent(session) {
-  agentWs = new WebSocket(`${AGENT_URL}?token=${encodeURIComponent(session.agent)}`);
+  // The socket to open comes from the server, because it has to be the region the
+  // interviewer was created in. Guessing it means the interview works for whoever
+  // happens to be near the right datacentre.
+  agentWs = new WebSocket(`${session.agent_ws}?token=${encodeURIComponent(session.agent)}`);
   // The agent is stored at AssemblyAI: the browser sends its id, not its instructions.
   agentWs.onopen = () => agentWs.send(JSON.stringify({ type: "session.update", session: { agent_id: session.agent_id } }));
   agentWs.onmessage = (event) => handleAgent(JSON.parse(event.data));

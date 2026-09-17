@@ -50,8 +50,18 @@ INVITES_DIR = DATA_DIR / "invites"
 MAX_SESSION_BYTES = 4_000_000
 SESSION_ID = re.compile(r"^\d{8}T\d{6}Z-[0-9a-f]{8}$")
 
-AGENTS_URL = "https://agents.assemblyai.com/v1/agents"
-AGENT_TOKEN_URL = "https://agents.assemblyai.com/v1/token"
+# AssemblyAI runs the Voice Agent API in two regions, and an agent belongs to the
+# one it was created in. Left implicit, the region comes from wherever the caller
+# happens to be: a server in Oregon creates its interviewer in the US, a browser in
+# Europe looks for it in the EU, and the session is refused with "Agent not found"
+# while every REST call says 201 and 200. Which judge or candidate it works for
+# then depends on their latitude. So it is pinned here, and the page is told which
+# socket to open rather than guessing.
+REGION = os.environ.get("PROBE_REGION", "us").strip().lower()
+AGENTS_HOST = "agents.eu.assemblyai.com" if REGION == "eu" else "agents.assemblyai.com"
+AGENTS_URL = f"https://{AGENTS_HOST}/v1/agents"
+AGENT_TOKEN_URL = f"https://{AGENTS_HOST}/v1/token"
+AGENT_WS = f"wss://{AGENTS_HOST}/v1/ws"
 STREAMING_TOKEN_URL = "https://streaming.assemblyai.com/v3/token"
 # Long enough to open both sockets, short enough that a token lifted from the
 # page is worthless. Tokens are single-use: one interview, one fetch.
@@ -149,7 +159,8 @@ async def health() -> dict:
     mean four different things, and a deployed instance should say which.
     """
     key = os.environ.get("ASSEMBLYAI_API_KEY", "")
-    state = {"brief": True, "topics": len(BRIEF["topics"]), "key_present": bool(key),
+    state = {"brief": True, "region": REGION, "agents_host": AGENTS_HOST,
+             "topics": len(BRIEF["topics"]), "key_present": bool(key),
              "key_looks_whole": bool(key) and key == key.strip() and not key.startswith(("\"", "'")),
              "agent": None, "agent_readback": None, "token": None}
     if not key:
@@ -320,7 +331,7 @@ async def session(request: Request) -> dict:
         streaming = await _token(client, STREAMING_TOKEN_URL, {"Authorization": key},
                                  {"expires_in_seconds": TOKEN_TTL_SECONDS})
     return {"agent_id": agent_id, "agent": agent, "streaming": streaming,
-            "language": language, "ttl": TOKEN_TTL_SECONDS}
+            "agent_ws": AGENT_WS, "language": language, "ttl": TOKEN_TTL_SECONDS}
 
 
 @app.post("/api/assess")

@@ -63,7 +63,8 @@ window.fetch = async (url, options) => {
       { code: "en", name: "English", voice: "alba" }, { code: "fr", name: "Français", voice: "estelle" }] });
   }
   if (url === "/api/session") {
-    return reply({ agent_id: "agent-1", agent: "tok-a", streaming: "tok-s", language: "en" });
+    return reply({ agent_id: "agent-1", agent: "tok-a", streaming: "tok-s", language: "en",
+                   agent_ws: "wss://agents.assemblyai.com/v1/ws" });
   }
   if (url === "/api/assess") {
     assessCalls += 1;

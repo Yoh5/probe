@@ -76,8 +76,8 @@ def minted(monkeypatch):
 def test_the_browser_gets_an_agent_id_and_two_tokens(client, minted):
     body = client.post("/api/session", json={"language": "en"}).json()
     assert body == {"agent_id": "agent-en", "agent": "token-for-agent",
-                    "streaming": "token-for-streaming", "language": "en",
-                    "ttl": server.TOKEN_TTL_SECONDS}
+                    "streaming": "token-for-streaming", "agent_ws": server.AGENT_WS,
+                    "language": "en", "ttl": server.TOKEN_TTL_SECONDS}
 
 
 def test_the_long_lived_key_never_reaches_the_browser(client, minted):
@@ -403,3 +403,40 @@ def test_the_agent_is_read_back_with_the_key_that_made_it(client, minted):
     client.post("/api/session", json={"language": "en"})
     assert minted["readbacks"][0]["url"].endswith("/agent-en")
     assert minted["readbacks"][0]["headers"]["Authorization"] == "long-lived-secret"
+
+
+# -- which region the interviewer lives in ------------------------------------------
+
+def test_the_page_is_told_which_socket_to_open(client, minted):
+    """An agent belongs to the region it was created in. Left to the browser to
+    guess, the interview works for whoever happens to be near the right
+    datacentre: a server in Oregon creates its interviewer in the US, a browser in
+    Europe looks for it in the EU, and the session is refused with "Agent not
+    found" while every REST call answered 201 and 200."""
+    body = client.post("/api/session", json={"language": "en"}).json()
+    assert body["agent_ws"].startswith("wss://")
+    assert body["agent_ws"].endswith("/v1/ws")
+    assert server.AGENTS_HOST in body["agent_ws"]
+
+
+@pytest.mark.parametrize("region, host", [
+    ("eu", "agents.eu.assemblyai.com"),
+    ("us", "agents.assemblyai.com"),
+    ("", "agents.assemblyai.com"),
+    ("  EU  ", "agents.eu.assemblyai.com"),
+])
+def test_the_region_is_read_from_the_environment(monkeypatch, region, host):
+    monkeypatch.setenv("PROBE_REGION", region)
+    import importlib
+    reloaded = importlib.reload(server)
+    try:
+        assert reloaded.AGENTS_HOST == host
+        # Creating the agent, minting its token and opening the socket must all
+        # happen in one region, or the agent is created in one and looked for in
+        # another.
+        assert host in reloaded.AGENTS_URL
+        assert host in reloaded.AGENT_TOKEN_URL
+        assert host in reloaded.AGENT_WS
+    finally:
+        monkeypatch.delenv("PROBE_REGION")
+        importlib.reload(server)
