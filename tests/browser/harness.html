@@ -215,13 +215,16 @@ async function run() {
   heard(6);
   agent({ type: "input.speech.stopped" });
   const stopped = sent.length;
-  await wait(2000);
-  check("the first seconds after they stop are still theirs",
+  // AssemblyAI's own detection waits up to nine seconds for someone who sounds
+  // unfinished. The page's backstop has to sit beyond that, or it pre-empts the
+  // patience it exists to back up.
+  await wait(9000);
+  check("the page never pre-empts the interviewer's own patience",
     !sent.slice(stopped).some((m) => m.type === "reply.create"));
-  await wait(5000);
+  await wait(4000);
   const back = sent.slice(stopped).find((m) => m.type === "reply.create");
-  check("five seconds after they stop, the interviewer takes its turn",
-    back && back.instructions.includes("finished answering five seconds ago"),
+  check("the turn does come back if nothing else takes it",
+    back && back.instructions.includes("finished answering some time ago"),
     JSON.stringify(sent.slice(stopped).map((m) => m.type)));
 
   // 6. An answer that never ends: the granted time runs out and the turn is taken.
@@ -229,8 +232,8 @@ async function run() {
   agent({ type: "input.speech.started" });      // still talking: nothing is armed
   const mark = sent.length;
   await wait(20000);
-  check("talking without pausing never triggers the five second clock",
-    !sent.slice(mark).some((m) => m.type === "reply.create" && m.instructions.includes("five seconds ago")));
+  check("talking without pausing never triggers the backstop",
+    !sent.slice(mark).some((m) => m.type === "reply.create" && m.instructions.includes("some time ago")));
   await wait(95000);
   const expiry = sent.slice(mark).find((m) => m.type === "reply.create" && m.instructions.includes("as long as one answer gets"));
   check("the answer budget runs out and the interviewer takes the turn", Boolean(expiry));

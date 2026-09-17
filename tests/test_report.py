@@ -225,3 +225,75 @@ def test_the_last_answer_has_no_question_after_it():
     the chain is for, which is being checkable against the transcript."""
     built = report.build(session(), MODEL, BRIEF)
     assert built["answers"][-1]["then_asked"] == ""
+
+
+# -- the scale, and being honest about a thin interview -----------------------------
+
+def scored(session_dict, *scores):
+    """Give the assessments real scores, so the scale has something to plot."""
+    for assessment, value in zip(session_dict["assessments"], scores):
+        assessment["score"] = value
+    return session_dict
+
+
+def test_every_measured_answer_lands_on_the_scale():
+    """Scores in a list are four decimals nobody reads. On one axis with the line
+    drawn, which side an answer fell on is the whole finding."""
+    built = report.build(scored(session(), None, 0.9), MODEL, BRIEF)
+    scale = built["scale"]
+    assert [m["verdict"] for m in scale["marks"]] == ["prepared"]
+    assert scale["threshold"] == MODEL["threshold"]
+    assert 0 < scale["marks"][0]["at"] < 100
+    assert 0 < scale["threshold_at"] < 100
+
+
+def test_a_dot_is_never_pinned_to_the_edge():
+    """One answer and the threshold would otherwise sit at 0% and 100%, where a
+    reader cannot see how far apart they are."""
+    scale = report.build(scored(session(), None, -0.19), MODEL, BRIEF)["scale"]
+    assert 5 < scale["marks"][0]["at"] < 95
+
+
+def test_an_answer_the_wrong_side_of_the_line_is_on_the_wrong_side():
+    both = session()
+    both["assessments"].append(dict(both["assessments"][1], topic_id="judgement",
+                                    verdict="spontaneous", reasons=[], pointed=[]))
+    scale = report.build(scored(both, None, 0.9, -1.4), MODEL, BRIEF)["scale"]
+    prepared = next(m for m in scale["marks"] if m["verdict"] == "prepared")
+    spontaneous = next(m for m in scale["marks"] if m["verdict"] == "spontaneous")
+    assert spontaneous["at"] < scale["threshold_at"] < prepared["at"]
+
+
+def test_no_scale_when_nothing_was_measured():
+    """An empty axis would say a measurement happened. None did."""
+    empty = session(assessments=[{"topic_id": "warmup", "verdict": "baseline", "quote": "um",
+                                  "answer_words": []}])
+    assert report.build(empty, MODEL, BRIEF)["scale"] is None
+
+
+def test_a_thin_interview_does_not_read_as_a_clean_one():
+    """Two comparable answers out of seven with nothing flagged is not a clean
+    interview, it is one that measured almost nothing, and a recruiter must not
+    read the first when the truth is the second."""
+    thin = session()
+    thin["assessments"][1].update(verdict="spontaneous", reasons=[], pointed=[])
+    # Both topics answered, so nothing is left to dig into - and yet four of the
+    # six answers told us nothing at all.
+    thin["assessments"].append(dict(thin["assessments"][1], topic_id="judgement"))
+    for _ in range(4):
+        thin["assessments"].append({"topic_id": "project", "verdict": "not_measured",
+                                    "question": "q", "quote": "hm", "answer_words": []})
+    built = report.build(thin, MODEL, BRIEF)
+    assert built["thin"] is True
+    assert built["status"] != "clear"
+    assert built["next_steps"] == []
+    assert "2" in built["headline"] and "7" in built["headline"]
+
+
+def test_an_interview_that_measured_most_of_itself_is_clean():
+    fine = session()
+    fine["assessments"][1].update(verdict="spontaneous", reasons=[], pointed=[])
+    fine["assessments"].append(dict(fine["assessments"][1], topic_id="judgement"))
+    built = report.build(fine, MODEL, BRIEF)
+    assert built["thin"] is False
+    assert built["status"] == "clear"

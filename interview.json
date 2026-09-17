@@ -1,6 +1,6 @@
 {
   "role": "Software engineer, first screening",
-  "warmup": "Before we start, walk me through your day yesterday, from the morning on. Take thirty seconds or so.",
+  "warmup": "Before we start, walk me through your day yesterday, from the morning on. Whatever you actually did.",
   "topics": [
     {
       "id": "project",

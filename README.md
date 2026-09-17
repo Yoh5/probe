@@ -38,6 +38,11 @@ measurement rests on.
 Six questions, ninety seconds an answer, about five minutes. Three of the six are
 follow-ups, because a follow-up cannot be prepared for and an opening question can.
 
+Two silences, because they mean different things. A sentence that landed gets 2.2
+seconds before the interviewer takes its turn; one that trailed off gets nine, out
+of the ten the API allows, because that pause is someone hunting for a word and
+taking the turn from them is the rudest thing this can do.
+
 ## Where the measurement fits
 
 This is the part that is easy to get backwards, so it is worth saying plainly —

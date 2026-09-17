@@ -287,13 +287,20 @@ def test_the_silence_bounds_are_ones_assemblyai_will_accept(client, minted):
     assert 0 < detection["min_silence"] < detection["max_silence"] <= 10000
 
 
-def test_the_interviewer_waits_about_five_seconds_before_taking_a_turn(client, minted):
-    """A pause is thinking, not an ending. Anything much under five seconds steps
-    on candidates mid-thought, which is what this was raised from."""
+def test_a_finished_sentence_and_a_lost_word_are_waited_out_differently(client, minted):
+    """The two silences mean two different things, and collapsing them onto one
+    number gets the worst of both: dead air after every sentence that landed, and
+    still not enough room for someone hunting for a word.
+
+    min_silence follows an utterance that sounded FINISHED - short, so the
+    interview feels like a conversation. max_silence follows one that did not -
+    long, because that pause is a person thinking.
+    """
     client.post("/api/session", json={"language": "en"})
     detection = minted["agents"][0]["payload"]["input"]["turn_detection"]
-    assert detection["min_silence"] >= 4500
-    assert detection["max_silence"] >= 5000
+    assert detection["min_silence"] <= 2500
+    assert detection["max_silence"] >= 8000
+    assert detection["max_silence"] <= 10000        # the ceiling the API enforces
 
 
 # -- the candidate's own link -------------------------------------------------------

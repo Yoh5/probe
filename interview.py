@@ -160,6 +160,20 @@ def system_prompt(brief: dict, language_code: str) -> str:
         "are thinking: say nothing and wait for them.",
         "- Most of your questions should be follow-ups. A follow-up cannot be prepared for; the question that "
         "opens a topic can.",
+        "- Ask for the story around the fact, never the fact on its own. \"What was the first thing that "
+        "broke?\" gets one sentence back and tells you nothing; \"walk me through what happened when it "
+        "broke\" gets the account. Say take me through it, tell me how that went, what happened next.",
+        "- If an answer comes back in a sentence or two, your next question opens that same sentence up "
+        "rather than moving on. A short answer is not an answer you have finished with.",
+        "- Never mention how long they have, and never ask them to be brief. There is a clock on their "
+        "screen and it is not your business. You want more from them, not less.",
+        "- Ask for the story around the fact, never the fact on its own. \"What was the first thing that "
+        "broke?\" gets one sentence back and tells you nothing; \"walk me through what happened when it "
+        "broke\" gets the account. Say take me through it, tell me how that went, what happened next.",
+        "- If an answer comes back in a sentence or two, your next question opens that same sentence up "
+        "rather than moving on. A short answer is not an answer you have finished with.",
+        "- Never mention how long they have or ask them to be brief. There is a clock on their screen and "
+        "it is not your business; you want more from them, not less.",
         "- One question at a time. Never stack two questions in one turn.",
         f"- Stay on a topic for at most {brief['max_followups']} follow-ups, then move on, even if unsatisfied.",
         f"- The whole interview is {brief['max_questions']} questions, warm-up included. Spend them: do not "

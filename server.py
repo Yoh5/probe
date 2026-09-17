@@ -260,16 +260,24 @@ async def _agent_id(client: httpx.AsyncClient, key: str, language: str) -> str:
         "voice": {"voice_id": interview.voice_for(language, BRIEF)},
         "tools": TOOLS,
         "input": {
-            # Five seconds of silence before the interviewer takes the turn,
-            # whether or not the answer sounded finished. An interview answer has
-            # thinking pauses in it, and a pause is not an ending: at 2.4 s the
-            # interviewer was stepping on people mid-thought, which is the one
-            # thing that makes an interview feel like a form.
-            # AssemblyAI requires min_silence STRICTLY below max_silence, and
-            # rejects the session at connect time - not at agent creation - when it
-            # is not. Equal values passed creation and then closed every socket
-            # with a policy violation, so the interview would not start at all.
-            "turn_detection": {"min_silence": 4800, "max_silence": 5000, "interrupt_response": True},
+            # Two different silences, because they mean two different things.
+            #
+            # min_silence is the wait after an utterance that sounds FINISHED - a
+            # sentence that landed. Two seconds there is what makes the interview
+            # feel like a conversation rather than a form being filled in.
+            #
+            # max_silence is the wait after one that sounds UNFINISHED: trailing
+            # off, a stutter, someone hunting for the right word. Nine seconds
+            # there, out of the ten the API allows, because that pause is a person
+            # thinking, and taking the turn from them is the rudest thing this can
+            # do.
+            #
+            # Both set to five, as they were, gives the worst of each: a beat of
+            # dead air after every finished sentence, and still not enough room to
+            # recover a lost word. They must also differ - AssemblyAI requires
+            # min_silence STRICTLY below max_silence and enforces it when the
+            # socket opens, not when the agent is created.
+            "turn_detection": {"min_silence": 2200, "max_silence": 9000, "interrupt_response": True},
             "language_codes": [language],
         },
     }

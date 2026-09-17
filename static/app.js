@@ -22,10 +22,12 @@ const RATE = 24000;
 // How long to wait for the transcription connection to finish the last words of
 // an answer before assessing it. The agent holds its turn meanwhile.
 const WORDS_SETTLE_MS = 700;
-// How long the interviewer leaves a candidate who has spoken and then stopped
-// before taking the turn back. Nothing is armed until they have spoken: someone
-// who has not started yet is thinking, and has a visible clock of their own.
-const AFTER_SPEAKING_MS = 5000;
+// A backstop, for when AssemblyAI's own turn detection never fires at all. It has
+// to sit BEYOND the longest wait that detection can make on its own (9 s), or it
+// pre-empts the patience it is meant to be backing up - which is what was cutting
+// people off in the middle of finding a word. Nothing is armed until they have
+// spoken: someone who has not started is thinking, and has a clock of their own.
+const AFTER_SPEAKING_MS = 11000;
 // Before that, the page says out loud that thinking is allowed.
 const PATIENCE_MS = 2000;
 // How long the candidate has for one answer, and when the clock starts to press.
@@ -456,7 +458,7 @@ function theyStopped() {
   clearTimeout(afterSpeaking);
   afterSpeaking = setTimeout(() => {
     afterSpeaking = null;
-    nudge("The candidate finished answering five seconds ago and is waiting. Take your turn now: "
+    nudge("The candidate finished answering some time ago and is waiting. Take your turn now: "
       + "either one follow-up built on what they just said, or the next question, built on it as well.");
   }, AFTER_SPEAKING_MS);
 }

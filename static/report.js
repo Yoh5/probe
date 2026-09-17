@@ -75,6 +75,15 @@ function summary(report) {
                 say[CHIP_KEY[report.status] || CHIP_KEY.none]].filter(Boolean);
   card.append(el("p", "meta", meta.join("  ·  ")));
 
+  // When most of the interview could not be measured, that is a fact about the
+  // report, and it must not be left to the reader to work out from two numbers in
+  // a row of boxes.
+  if (report.thin && report.next_steps.length) {
+    card.append(el("p", "thin-note", say.head_thin
+      .replace("{compared}", String(report.counts.compared))
+      .replace("{total}", String(report.counts.answers))));
+  }
+
   const stats = el("div", "stats");
   const flagged = stat(report.counts.flagged, say.stat_prepared);
   if (report.counts.flagged) flagged.classList.add("flag");
@@ -112,6 +121,34 @@ function stepCard(step) {
     for (const reason of step.reasons) why.append(el("li", null, reason));
     card.append(why);
   }
+  return card;
+}
+
+// Every measured answer on one axis, with the line the decision was made on. The
+// scores are otherwise four decimals in a list, and a reader has no way to see
+// that one answer sat a hair from the line while another was nowhere near it.
+function scaleCard(scale) {
+  const card = el("section", "card");
+  card.append(el("p", "chain-title", say.scale));
+
+  const plot = el("div", "plot");
+  const line = el("span", "plot-line");
+  line.style.left = `${scale.threshold_at}%`;
+  plot.append(line);
+
+  for (const mark of scale.marks) {
+    const dot = el("span", `plot-dot ${mark.verdict}`);
+    dot.style.left = `${mark.at}%`;
+    dot.title = `${mark.topic_id}: ${mark.score}`;
+    dot.setAttribute("role", "img");
+    dot.setAttribute("aria-label", `${mark.topic_id}: ${mark.score}`);
+    plot.append(dot);
+  }
+  card.append(plot);
+
+  const ends = el("p", "plot-ends");
+  ends.append(el("span", null, say.scale_left), el("span", null, say.scale_right));
+  card.append(ends, el("p", "chain-note", say.scale_note));
   return card;
 }
 
@@ -222,6 +259,8 @@ function render(report) {
     main.append(el("h2", null, say.dig));
     for (const step of report.next_steps) main.append(stepCard(step));
   }
+
+  if (report.scale) main.append(scaleCard(report.scale));
 
   main.append(el("h2", null, say.answers
     .replace("{compared}", String(report.counts.compared))

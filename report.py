@@ -242,6 +242,37 @@ def limits(model: dict | None = None, language: str = "en") -> list[str]:
     return lines
 
 
+def scale_of(answers: list[dict], model: dict) -> dict | None:
+    """Every measured answer on one axis, with the line the decision was made on.
+
+    One number per answer, and the only thing that matters is which side of the
+    line it falls. Without it the scores are four decimals in a list and a reader
+    has no way to see that one answer sat a hair from the line while another was
+    nowhere near it.
+    """
+    threshold = model.get("threshold")
+    scored = [a for a in answers if isinstance(a.get("score"), (int, float))]
+    if not scored or not isinstance(threshold, (int, float)):
+        return None
+    values = [a["score"] for a in scored] + [threshold]
+    low, high = min(values), max(values)
+    margin = max((high - low) * 0.18, 0.35)      # never a dot pinned to the edge
+    low, high = low - margin, high + margin
+    span = high - low
+    return {
+        "low": round(low, 3),
+        "high": round(high, 3),
+        "threshold": round(threshold, 3),
+        "threshold_at": round((threshold - low) / span * 100, 2),
+        "marks": [{
+            "topic_id": a["topic_id"],
+            "verdict": a["verdict"],
+            "score": round(a["score"], 2),
+            "at": round((a["score"] - low) / span * 100, 2),
+        } for a in scored],
+    }
+
+
 def build(session: dict, model: dict | None = None, brief: dict | None = None) -> dict:
     """The whole report for one saved interview.
 
@@ -264,15 +295,22 @@ def build(session: dict, model: dict | None = None, brief: dict | None = None) -
     flagged = [a for a in graded if a["verdict"] == "prepared"]
     steps = _steps(answers, brief, say)
 
+    # "Nothing to dig into" out of two comparable answers in seven is not a clean
+    # interview, it is a thin one, and the two must not read the same.
+    thin = bool(answers) and len(graded) * 2 < len(answers)
+
     if steps:
         headline = say["head_one"] if len(steps) == 1 else say["head_many"].format(n=len(steps))
         status = "flag" if any(s["kind"] == "prepared" for s in steps) else "none"
-    elif graded:
-        headline = say["head_clear"]
-        status = "clear"
-    else:
+    elif not graded:
         headline = say["head_empty"]
         status = "none"
+    elif thin:
+        headline = say["head_thin"].format(compared=len(graded), total=len(answers))
+        status = "none"
+    else:
+        headline = say["head_clear"]
+        status = "clear"
 
     spoken = sum(a["facts"]["words"] or 0 for a in answers)
     return {
@@ -281,6 +319,8 @@ def build(session: dict, model: dict | None = None, brief: dict | None = None) -
         "headline": headline,
         "status": status,
         "next_steps": steps,
+        "scale": scale_of(answers, model),
+        "thin": thin,
         "counts": {
             "answers": len(answers),
             "compared": len(graded),

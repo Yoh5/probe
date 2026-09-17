@@ -22,6 +22,11 @@ SIGNAL_KINDS = {
 
 STRINGS = {
     "en": {
+        "scale": "Every measured answer on one line",
+        "scale_note": "One number per answer, from four signals compared with this candidate's own warm-up. The only thing that matters is which side of the line it falls.",
+        "scale_left": "sounds thought through",
+        "scale_right": "sounds prepared",
+        "head_thin": "Only {compared} of {total} answers could be compared.",
         "report_title": "Interview report",
         "dig": "Dig into this",
         "answers": "The interview, answer by answer ({compared} of {total} could be compared)",
@@ -104,6 +109,11 @@ STRINGS = {
         "many_speakers": "{n} speakers",
     },
     "fr": {
+        "scale": "Chaque réponse mesurée sur une même échelle",
+        "scale_note": "Un nombre par réponse, à partir de quatre signaux comparés à l'échauffement du candidat. Seul compte le côté de la ligne où il tombe.",
+        "scale_left": "sonne pensée sur le moment",
+        "scale_right": "sonne préparée",
+        "head_thin": "Seules {compared} réponses sur {total} ont pu être comparées.",
         "report_title": "Compte rendu d'entretien",
         "dig": "À creuser",
         "answers": "L'entretien, réponse par réponse ({compared} sur {total} ont pu être comparées)",
@@ -185,6 +195,11 @@ STRINGS = {
         "many_speakers": "{n} locuteurs",
     },
     "es": {
+        "scale": "Cada respuesta medida en una misma escala",
+        "scale_note": "Un número por respuesta, a partir de cuatro señales comparadas con el calentamiento del propio candidato. Solo importa de qué lado de la línea cae.",
+        "scale_left": "suena pensada en el momento",
+        "scale_right": "suena preparada",
+        "head_thin": "Solo {compared} de {total} respuestas pudieron compararse.",
         "report_title": "Informe de la entrevista",
         "dig": "Para profundizar",
         "answers": "La entrevista, respuesta por respuesta ({compared} de {total} pudieron compararse)",
@@ -265,6 +280,11 @@ STRINGS = {
         "many_speakers": "{n} hablantes",
     },
     "de": {
+        "scale": "Jede gemessene Antwort auf einer Skala",
+        "scale_note": "Eine Zahl je Antwort, aus vier Signalen im Vergleich zum eigenen Aufwärmen der Person. Es zählt nur, auf welcher Seite der Linie sie liegt.",
+        "scale_left": "klingt im Moment gedacht",
+        "scale_right": "klingt vorbereitet",
+        "head_thin": "Nur {compared} von {total} Antworten waren vergleichbar.",
         "report_title": "Gesprächsbericht",
         "dig": "Hier nachhaken",
         "answers": "Das Gespräch, Antwort für Antwort ({compared} von {total} vergleichbar)",
@@ -346,6 +366,11 @@ STRINGS = {
         "many_speakers": "{n} Stimmen",
     },
     "it": {
+        "scale": "Ogni risposta misurata su una sola scala",
+        "scale_note": "Un numero per risposta, da quattro segnali confrontati con il riscaldamento del candidato stesso. Conta solo da che parte della linea cade.",
+        "scale_left": "suona pensata sul momento",
+        "scale_right": "suona preparata",
+        "head_thin": "Solo {compared} risposte su {total} sono state confrontabili.",
         "report_title": "Resoconto del colloquio",
         "dig": "Da approfondire",
         "answers": "Il colloquio, risposta per risposta ({compared} su {total} confrontabili)",
@@ -427,6 +452,11 @@ STRINGS = {
         "many_speakers": "{n} parlanti",
     },
     "pt": {
+        "scale": "Cada resposta medida numa só escala",
+        "scale_note": "Um número por resposta, a partir de quatro sinais comparados com o aquecimento do próprio candidato. Só conta de que lado da linha cai.",
+        "scale_left": "soa pensada no momento",
+        "scale_right": "soa preparada",
+        "head_thin": "Apenas {compared} de {total} respostas puderam ser comparadas.",
         "report_title": "Relatório da entrevista",
         "dig": "A aprofundar",
         "answers": "A entrevista, resposta a resposta ({compared} de {total} puderam ser comparadas)",
