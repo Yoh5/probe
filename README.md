@@ -1,12 +1,18 @@
 # Probe
 
-**An interviewer you cannot rehearse for.**
+**The one-way video interview asks everyone the same questions. Probe asks one.**
 
-A candidate can prepare for a question they can predict. Every screening interview
-that reads from a list can be predicted, which is why the answers to one so often
-sound written. Probe asks one opening question and then builds every question
-after it out of what the candidate has just said — quoting their own words back
-and asking for what only the person who lived it would know.
+Probe replaces the asynchronous video questionnaire — HireVue, Spark Hire, a form
+with a webcam. Those are convenient for exactly one reason and broken for exactly
+one reason, and it is the same reason: the questions are fixed, so every candidate
+gets the same ones, so the questions circulate, so the answers arrive rehearsed.
+A recruiter ends up watching twenty takes of a prepared speech.
+
+Probe is the same convenience without that. A candidate opens a link and talks for
+five minutes. One question is written in advance. Every question after it is built
+out of what the candidate has just said — their own words quoted back, and then a
+request for what only the person who lived it would know. There is nothing to
+circulate, because the interview does not exist until they speak.
 
 Built on the [AssemblyAI Voice Agent API](https://www.assemblyai.com/docs), with a
 second Realtime Streaming connection carrying the word-level timings the
@@ -27,7 +33,8 @@ measurement rests on.
 5. The recruiter gets a report: what was asked, what was said, what was measured,
    and what the measurement cannot tell them.
 
-Eight questions, ninety seconds an answer, about five minutes.
+Six questions, ninety seconds an answer, about five minutes. Three of the six are
+follow-ups, because a follow-up cannot be prepared for and an opening question can.
 
 ## Where the measurement fits
 
@@ -60,11 +67,15 @@ Unscripted tells you afterwards. Probe does something about it during.
 
 ## Who it is for
 
-A team screening more applicants than it has interviewer-hours, that wants the
-first conversation to be a real one. A twenty-minute human screening call costs
-more than the signal it usually produces; a form produces answers that were
-written once and reused. Probe is the five minutes in between, and it comes back
-with a transcript a human can act on.
+A team screening more applicants than it has interviewer-hours, that has tried the
+one-way video round and found it produced twenty recordings of the same prepared
+answer. Probe sits in the same slot in the funnel — before any human time is
+spent — and comes back with a transcript worth reading and a short list of what to
+dig into if the candidate goes through.
+
+One job posting is one brief. One candidate is one link, and the link works once:
+a candidate who could take the interview twice could prepare for the second one,
+which would put us back where the video questionnaire is.
 
 ---
 
@@ -78,9 +89,10 @@ uvicorn server:app --port 8000
 
 | Page | What it is |
 |---|---|
-| `/` | the candidate's interview |
-| `/reports` | every interview recorded |
+| `/reports` | the recruiter's page: make a candidate link, see who has taken it |
+| `/i/<id>` | a candidate's own link, good for one interview |
 | `/report?id=…` | one interview's report |
+| `/` | the interview with no invitation, for trying it out yourself |
 
 The interview itself is `interview.json`: the role, the warm-up question asked
 word for word, the topics with what the recruiter wants to come away with, the
@@ -97,6 +109,7 @@ interview with nothing to ask.
 | `assess.py` | the verdict for one answer, and the instruction the interviewer follows |
 | `features.py`, `detector.py` | the signals and the frozen model behind that verdict |
 | `report.py` | the recruiter's report, built from the saved session |
+| `invites.py` | one candidate, one link, spent when the interview is taken |
 | `static/app.js` | the two websockets, the microphone, the turn-taking, the clocks |
 
 The API key never reaches the browser: the page is handed an agent id and two
@@ -106,7 +119,7 @@ a candidate who could read them could prepare for them.
 ## Tests
 
 ```bash
-python -m pytest -q          # 88
+python -m pytest -q          # 119
 ```
 
 Including `tests/test_browser.py`, which runs a whole conversation through the

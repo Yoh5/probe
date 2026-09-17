@@ -35,12 +35,14 @@ from fastapi.staticfiles import StaticFiles
 import assess
 import detector
 import interview
+import invites
 import report
 
 ROOT = Path(__file__).parent
 load_dotenv(ROOT / ".env")
 
 SESSIONS_DIR = ROOT / "sessions"
+INVITES_DIR = ROOT / "invites"
 MAX_SESSION_BYTES = 4_000_000
 SESSION_ID = re.compile(r"^\d{8}T\d{6}Z-[0-9a-f]{8}$")
 
@@ -82,6 +84,46 @@ app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(ROOT / "static" / "index.html")
+
+
+@app.get("/i/{invite_id}")
+def invited(invite_id: str) -> FileResponse:
+    """A candidate's link. The page is the same one; the id is read from the path."""
+    return FileResponse(ROOT / "static" / "index.html")
+
+
+@app.get("/api/invites/{invite_id}")
+def invite_state(invite_id: str) -> dict:
+    """Whether this link can still be used, and what it is for.
+
+    Reading it does not spend it: a candidate who opens the link, reads the page
+    and closes it again has not taken their interview.
+    """
+    try:
+        invite = invites.read(INVITES_DIR, invite_id)
+    except invites.InviteError as error:
+        raise HTTPException(error.status, str(error))
+    return {"id": invite["id"], "label": invite["label"], "status": invites.status(invite)}
+
+
+@app.post("/api/invites")
+async def new_invite(request: Request) -> dict:
+    """One invitation, for one candidate."""
+    try:
+        body = await request.json()
+    except ValueError:
+        body = {}
+    try:
+        invite = invites.create(INVITES_DIR, (body or {}).get("label", ""), BRIEF["role"])
+    except invites.InviteError as error:
+        raise HTTPException(error.status, str(error))
+    return {**invite, "status": invites.status(invite), "path": f"/i/{invite['id']}"}
+
+
+@app.get("/api/invites")
+def list_invites() -> dict:
+    listed = invites.listing(INVITES_DIR)
+    return {"invites": [{**i, "path": f"/i/{i['id']}"} for i in listed]}
 
 
 @app.get("/report")
@@ -203,6 +245,15 @@ async def session(request: Request) -> dict:
     if language not in {offered["code"] for offered in BRIEF["languages"]}:
         raise HTTPException(422, f"this interview is not offered in {language}")
 
+    # An interview that can be taken twice is an interview the second attempt can
+    # be prepared for, which is the failure this whole project exists to avoid.
+    invite_id = (body or {}).get("invite")
+    if invite_id:
+        try:
+            invites.claim(INVITES_DIR, invite_id)
+        except invites.InviteError as error:
+            raise HTTPException(error.status, str(error))
+
     async with httpx.AsyncClient(timeout=20, verify=tls_context()) as client:
         agent_id = await _agent_id(client, key, language)
         agent = await _token(client, AGENT_TOKEN_URL, {"Authorization": f"Bearer {key}"},
@@ -260,6 +311,14 @@ async def save_session(request: Request) -> dict:
     session_id = f"{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}-{secrets.token_hex(4)}"
     SESSIONS_DIR.mkdir(exist_ok=True)
     (SESSIONS_DIR / f"{session_id}.json").write_text(json.dumps(session, indent=2), encoding="utf-8")
+
+    invite_id = session.get("invite")
+    if invite_id:
+        try:
+            invites.spend(INVITES_DIR, invite_id, session_id)
+        except invites.InviteError:
+            pass    # the interview happened and is saved; a missing invite is not
+                    # a reason to lose it
     return {"id": session_id}
 
 

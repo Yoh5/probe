@@ -86,3 +86,80 @@ async function load() {
 }
 
 load();
+
+// -- inviting a candidate ------------------------------------------------------
+
+const STATUS = { waiting: "Not opened yet", started: "Started", done: "Interview taken" };
+
+function inviteRow(invite) {
+  const row = el("div", "invite-row");
+  row.append(el("span", "who", invite.label || "No name"));
+  row.append(el("span", `chip ${invite.status}`, STATUS[invite.status] || invite.status));
+  if (invite.session_id) {
+    const link = el("a", null, "Open the report");
+    link.href = `/report?id=${encodeURIComponent(invite.session_id)}`;
+    link.style.fontSize = "14px";
+    row.append(link);
+  }
+  row.append(el("span", "link", new URL(invite.path, location.origin).href));
+  return row;
+}
+
+async function loadInvites() {
+  try {
+    const response = await fetch("/api/invites");
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const { invites } = await response.json();
+    $("invite-count").textContent = invites.length === 1
+      ? "One invitation."
+      : `${invites.length} invitations.`;
+    const list = $("invites");
+    list.className = invites.length ? "group" : "";
+    list.replaceChildren();
+    if (!invites.length) {
+      list.append(el("p", "empty", "No invitation yet. Create one above and send the link."));
+      return;
+    }
+    for (const invite of invites) list.append(inviteRow(invite));
+  } catch (error) {
+    $("invite-count").textContent = `The invitations could not be loaded: ${error.message}`;
+  }
+}
+
+$("invite-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = $("invite-go");
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/invites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label: $("invite-label").value }),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const invite = await response.json();
+    const url = new URL(invite.path, location.origin).href;
+    $("invite-url").textContent = url;
+    $("invite-made").hidden = false;
+    $("invite-label").value = "";
+    loadInvites();
+  } catch (error) {
+    $("invite-count").textContent = `The link could not be created: ${error.message}`;
+  } finally {
+    button.disabled = false;
+  }
+});
+
+$("invite-copy").addEventListener("click", async () => {
+  const button = $("invite-copy");
+  try {
+    await navigator.clipboard.writeText($("invite-url").textContent);
+    button.textContent = "Copied";
+  } catch (error) {
+    // Clipboard access can be refused; the link is on screen and selectable.
+    button.textContent = "Select it and copy";
+  }
+  setTimeout(() => { button.textContent = "Copy"; }, 2500);
+});
+
+loadInvites();

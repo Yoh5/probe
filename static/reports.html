@@ -20,6 +20,28 @@
   </header>
   <main>
     <h1>Interviews</h1>
+
+    <section class="card invite-card">
+      <p class="invite-head">Invite a candidate</p>
+      <p class="meta">One link each, and each link works once: a candidate who could
+        take the interview twice could prepare for the second one.</p>
+      <form id="invite-form" class="invite-form">
+        <label class="sr-only" for="invite-label">Who the invitation is for</label>
+        <input id="invite-label" name="label" type="text" autocomplete="off"
+               placeholder="Name or reference, for your own list" maxlength="120">
+        <button class="go" id="invite-go" type="submit">Create a link</button>
+      </form>
+      <p class="invite-made" id="invite-made" hidden>
+        <code id="invite-url"></code>
+        <button class="ghost copy" id="invite-copy" type="button">Copy</button>
+      </p>
+    </section>
+
+    <h2>Invitations</h2>
+    <p class="meta" id="invite-count">Loading</p>
+    <div id="invites"></div>
+
+    <h2>Finished interviews</h2>
     <p class="meta" id="count">Loading</p>
     <div id="list"></div>
   </main>

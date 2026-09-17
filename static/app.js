@@ -48,7 +48,9 @@ const COPY = {
         start: "I agree, start the interview", hint: "Headphones keep the interviewer's voice out of your microphone.",
         listening: "Listening", thinking: "Take your time", speaking: "The interviewer is speaking", connecting: "Connecting", you: "You", them: "Interviewer",
         finish: "End the interview", budget: "to answer", stage: "Part {n} of {total}", saving: "Saving the interview", savingLede: "A few seconds. Keep this page open.",
-        done: "Thank you. That's everything.", doneLede: "The recruiter has your interview and will be in touch.", retry: "Try again" },
+        done: "Thank you. That's everything.", doneLede: "The recruiter has your interview and will be in touch.", retry: "Try again",
+        spentTitle: "This interview has already been taken", spentText: "Each link works once, so the questions cannot be heard twice.", spentFix: "If you think this is a mistake, reply to the email that sent you here.",
+        goneTitle: "This link is not valid", goneText: "It may have been mistyped, or withdrawn.", goneFix: "Reply to the email that sent you here and ask for a new one." },
   fr: { title: "Une conversation, pas un formulaire.", lede: "Cinq minutes, à voix haute. L'entretien écoute, répond, et enchaîne à partir de ce que vous dites.",
         terms1: "Votre voix est transcrite au fil de la parole", terms1b: "Par AssemblyAI. L'audio n'est pas conservé.",
         terms2: "La transcription est remise au recruteur", terms2b: "Elle suggère quoi demander ensuite ; elle ne décide jamais rien seule.",
@@ -56,7 +58,9 @@ const COPY = {
         start: "J'accepte, commencer l'entretien", hint: "Un casque évite que la voix de l'entretien entre dans votre micro.",
         listening: "À vous", thinking: "Prenez votre temps", speaking: "L'entretien parle", connecting: "Connexion", you: "Vous", them: "Entretien",
         finish: "Terminer l'entretien", budget: "pour répondre", stage: "Partie {n} sur {total}", saving: "Enregistrement de l'entretien", savingLede: "Quelques secondes. Gardez cette page ouverte.",
-        done: "Merci, c'est terminé.", doneLede: "Le recruteur a votre entretien et vous recontactera.", retry: "Réessayer" },
+        done: "Merci, c'est terminé.", doneLede: "Le recruteur a votre entretien et vous recontactera.", retry: "Réessayer",
+        spentTitle: "Cet entretien a déjà été passé", spentText: "Chaque lien ne sert qu'une fois, pour que les questions ne soient pas entendues deux fois.", spentFix: "Si vous pensez qu'il s'agit d'une erreur, répondez au message qui vous a envoyé ici.",
+        goneTitle: "Ce lien n'est pas valide", goneText: "Il a peut-être été mal recopié, ou retiré.", goneFix: "Répondez au message qui vous a envoyé ici pour en demander un nouveau." },
   es: { title: "Una conversación, no un formulario.", lede: "Cinco minutos, en voz alta. La entrevista escucha, responde y sigue con lo que usted dice.",
         terms1: "Su voz se transcribe mientras habla", terms1b: "Con AssemblyAI. El audio no se conserva.",
         terms2: "La transcripción se entrega al reclutador", terms2b: "Sugiere qué preguntar después; nunca decide nada por sí sola.",
@@ -64,7 +68,9 @@ const COPY = {
         start: "Acepto, empezar la entrevista", hint: "Los auriculares evitan que la voz de la entrevista entre en su micrófono.",
         listening: "Le escucho", thinking: "Tómese su tiempo", speaking: "La entrevista habla", connecting: "Conectando", you: "Usted", them: "Entrevista",
         finish: "Terminar la entrevista", budget: "para responder", stage: "Parte {n} de {total}", saving: "Guardando la entrevista", savingLede: "Unos segundos. Mantenga esta página abierta.",
-        done: "Gracias, eso es todo.", doneLede: "El reclutador tiene su entrevista y se pondrá en contacto.", retry: "Reintentar" },
+        done: "Gracias, eso es todo.", doneLede: "El reclutador tiene su entrevista y se pondrá en contacto.", retry: "Reintentar",
+        spentTitle: "Esta entrevista ya se ha realizado", spentText: "Cada enlace sirve una sola vez, para que las preguntas no se oigan dos veces.", spentFix: "Si cree que es un error, responda al mensaje que le trajo aquí.",
+        goneTitle: "Este enlace no es válido", goneText: "Puede estar mal copiado, o haber sido retirado.", goneFix: "Responda al mensaje que le trajo aquí y pida uno nuevo." },
   de: { title: "Ein Gespräch, kein Formular.", lede: "Fünf Minuten, laut gesprochen. Das Gespräch hört zu, antwortet und knüpft an Ihre Worte an.",
         terms1: "Ihre Stimme wird beim Sprechen transkribiert", terms1b: "Von AssemblyAI. Das Audio wird nicht gespeichert.",
         terms2: "Das Transkript geht an die Recruiterin oder den Recruiter", terms2b: "Es schlägt vor, was als Nächstes zu fragen ist; es entscheidet nie allein.",
@@ -72,7 +78,9 @@ const COPY = {
         start: "Einverstanden, Gespräch starten", hint: "Kopfhörer halten die Stimme des Gesprächs aus Ihrem Mikrofon.",
         listening: "Sie sind dran", thinking: "Lassen Sie sich Zeit", speaking: "Das Gespräch spricht", connecting: "Verbindung", you: "Sie", them: "Gespräch",
         finish: "Gespräch beenden", budget: "zum Antworten", stage: "Teil {n} von {total}", saving: "Gespräch wird gespeichert", savingLede: "Ein paar Sekunden. Lassen Sie die Seite offen.",
-        done: "Danke, das war alles.", doneLede: "Das Gespräch liegt vor und man meldet sich bei Ihnen.", retry: "Erneut versuchen" },
+        done: "Danke, das war alles.", doneLede: "Das Gespräch liegt vor und man meldet sich bei Ihnen.", retry: "Erneut versuchen",
+        spentTitle: "Dieses Gespräch wurde bereits geführt", spentText: "Jeder Link gilt einmal, damit die Fragen nicht zweimal zu hören sind.", spentFix: "Wenn das ein Irrtum ist, antworten Sie auf die Nachricht, die Sie hergeschickt hat.",
+        goneTitle: "Dieser Link ist ungültig", goneText: "Vielleicht vertippt, vielleicht zurückgezogen.", goneFix: "Antworten Sie auf die Nachricht, die Sie hergeschickt hat, und bitten Sie um einen neuen." },
   it: { title: "Una conversazione, non un modulo.", lede: "Cinque minuti, ad alta voce. Il colloquio ascolta, risponde e prosegue da ciò che dice.",
         terms1: "La sua voce viene trascritta mentre parla", terms1b: "Da AssemblyAI. L'audio non viene conservato.",
         terms2: "La trascrizione va al selezionatore", terms2b: "Suggerisce cosa chiedere dopo; non decide mai nulla da sola.",
@@ -80,7 +88,9 @@ const COPY = {
         start: "Accetto, iniziare il colloquio", hint: "Le cuffie tengono la voce del colloquio fuori dal microfono.",
         listening: "A lei", thinking: "Con calma", speaking: "Il colloquio parla", connecting: "Connessione", you: "Lei", them: "Colloquio",
         finish: "Terminare il colloquio", budget: "per rispondere", stage: "Parte {n} di {total}", saving: "Salvataggio del colloquio", savingLede: "Pochi secondi. Tenga aperta la pagina.",
-        done: "Grazie, è tutto.", doneLede: "Il selezionatore ha il colloquio e la ricontatterà.", retry: "Riprovare" },
+        done: "Grazie, è tutto.", doneLede: "Il selezionatore ha il colloquio e la ricontatterà.", retry: "Riprovare",
+        spentTitle: "Questo colloquio è già stato sostenuto", spentText: "Ogni link vale una volta sola, perché le domande non si sentano due volte.", spentFix: "Se pensa sia un errore, risponda al messaggio che l'ha portata qui.",
+        goneTitle: "Questo link non è valido", goneText: "Potrebbe essere stato copiato male, o ritirato.", goneFix: "Risponda al messaggio che l'ha portata qui e ne chieda uno nuovo." },
   pt: { title: "Uma conversa, não um formulário.", lede: "Cinco minutos, em voz alta. A entrevista ouve, responde e continua a partir do que você diz.",
         terms1: "A sua voz é transcrita enquanto fala", terms1b: "Pela AssemblyAI. O áudio não é guardado.",
         terms2: "A transcrição vai para o recrutador", terms2b: "Sugere o que perguntar a seguir; nunca decide nada sozinha.",
@@ -88,12 +98,17 @@ const COPY = {
         start: "Aceito, começar a entrevista", hint: "Auscultadores evitam que a voz da entrevista entre no seu microfone.",
         listening: "É consigo", thinking: "Não tenha pressa", speaking: "A entrevista fala", connecting: "A ligar", you: "Você", them: "Entrevista",
         finish: "Terminar a entrevista", budget: "para responder", stage: "Parte {n} de {total}", saving: "A guardar a entrevista", savingLede: "Alguns segundos. Mantenha esta página aberta.",
-        done: "Obrigado, é tudo.", doneLede: "O recrutador tem a sua entrevista e entrará em contacto.", retry: "Tentar de novo" },
+        done: "Obrigado, é tudo.", doneLede: "O recrutador tem a sua entrevista e entrará em contacto.", retry: "Tentar de novo",
+        spentTitle: "Esta entrevista já foi realizada", spentText: "Cada ligação serve uma vez, para que as perguntas não sejam ouvidas duas vezes.", spentFix: "Se acha que é um engano, responda à mensagem que o trouxe aqui.",
+        goneTitle: "Esta ligação não é válida", goneText: "Pode ter sido mal copiada, ou retirada.", goneFix: "Responda à mensagem que o trouxe aqui e peça uma nova." },
 };
 
 let languages = [];
 let parts = 0;             // how many parts the interview has, warm-up included
 let role = "";
+// The candidate's own link is /i/<id>. An interview reached any other way is a
+// rehearsal, and is allowed: it is the recruiter trying their own interview.
+const invite = (location.pathname.match(/^[/]i[/]([0-9a-f]{32})$/) || [])[1] || null;
 let language = "en";
 let agentWs, sttWs, audioContext, playerContext, player, stream;
 let samplesSent = 0;
@@ -202,7 +217,32 @@ async function loadInterview() {
   }
   renderLanguages();
   applyCopy();
+  if (invite && !(await linkIsLive())) return;
   $("start").disabled = false;
+}
+
+// Reading the link does not spend it; this only asks whether it is still good, so
+// a candidate who opens it, reads the page and comes back later still has their
+// interview.
+async function linkIsLive() {
+  try {
+    const response = await fetch(`/api/invites/${invite}`);
+    if (response.ok) {
+      const state = await response.json();
+      if (state.status !== "done") return true;
+      fail(copy().spentTitle, copy().spentText, copy().spentFix);
+      return false;
+    }
+    if (response.status === 404) {
+      fail(copy().goneTitle, copy().goneText, copy().goneFix);
+      return false;
+    }
+  } catch (error) {
+    // The link could not be checked. Letting them through is the kinder mistake:
+    // the server refuses a spent invitation again when the interview starts.
+    return true;
+  }
+  return true;
 }
 
 // -- starting -------------------------------------------------------------------------
@@ -216,7 +256,7 @@ async function start() {
     const response = await fetch("/api/session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ language }),
+      body: JSON.stringify({ language, invite }),
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(body.detail || `HTTP ${response.status}`);
@@ -661,7 +701,7 @@ async function finish() {
     const response = await fetch("/api/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ recordedAt: new Date().toISOString(), language, turns, assessments, words }),
+      body: JSON.stringify({ recordedAt: new Date().toISOString(), language, invite, turns, assessments, words }),
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(body.detail || `HTTP ${response.status}`);

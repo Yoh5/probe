@@ -299,3 +299,38 @@ h2::before { content: ""; width: 14px; height: 3px; border-radius: 2px; backgrou
   .nav .back, .ghost { display: none; }
   .card, .group { box-shadow: none; border: 1px solid var(--separator); break-inside: avoid; }
 }
+
+/* -- inviting a candidate ------------------------------------------------------ */
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+.invite-card { margin-top: 20px; }
+.invite-head { font-weight: 600; margin: 0 0 4px; }
+.invite-form { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.invite-form input {
+  flex: 1 1 15ch; min-height: 48px; padding: 0 14px;
+  border: 1px solid var(--separator); border-radius: 12px;
+  font: 400 15px/1 var(--sans); color: var(--ink); background: var(--bg);
+}
+.invite-form input::placeholder { color: var(--secondary); }
+.invite-form input:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 40%, transparent); outline-offset: 2px; }
+.invite-form .go { width: auto; flex: none; margin-top: 0; min-height: 48px; border-radius: 12px; font-size: 15px; }
+.invite-made {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  margin: 14px 0 0; padding: 12px 14px; border-radius: 12px;
+  background: color-mix(in srgb, var(--clear-solid) 12%, transparent);
+}
+/* display:flex beats the hidden attribute, so it has to be said again. */
+.invite-made[hidden] { display: none; }
+.invite-made code { font-size: 13.5px; word-break: break-all; flex: 1 1 20ch; }
+.invite-made .copy { width: auto; flex: none; margin: 0; min-height: 38px; padding: 0 14px; border-radius: 9px; font-size: 14px; }
+.invite-row { display: flex; gap: 12px; align-items: center; padding: 13px 16px; flex-wrap: wrap; }
+.invite-row + .invite-row { border-top: 1px solid var(--separator); }
+.invite-row .who { font-weight: 600; font-size: 15px; flex: 1 1 12ch; }
+.invite-row .link { font-size: 13px; color: var(--secondary); word-break: break-all; flex: 1 1 100%; }
+.invite-row .chip { margin: 0; }
+.chip.waiting { color: var(--secondary); background: var(--grouped); }
+.chip.started { color: var(--flag); background: color-mix(in srgb, var(--flag-solid) 16%, transparent); }
+.chip.done { color: var(--clear); background: color-mix(in srgb, var(--clear-solid) 16%, transparent); }

@@ -15,6 +15,7 @@ from test_assess import CHATTY, WRITTEN, aai_words  # noqa: E402
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(server, "SESSIONS_DIR", tmp_path / "sessions")
+    monkeypatch.setattr(server, "INVITES_DIR", tmp_path / "invites")
     monkeypatch.setenv("ASSEMBLYAI_API_KEY", "long-lived-secret")
     return TestClient(server.app)
 
@@ -280,3 +281,79 @@ def test_the_interviewer_waits_about_five_seconds_before_taking_a_turn(client, m
     detection = minted["agents"][0]["payload"]["input"]["turn_detection"]
     assert detection["min_silence"] >= 4500
     assert detection["max_silence"] >= 5000
+
+
+# -- the candidate's own link -------------------------------------------------------
+
+def make_invite(client, label="Amina"):
+    response = client.post("/api/invites", json={"label": label})
+    assert response.status_code == 200
+    return response.json()
+
+
+def test_an_invitation_comes_back_with_the_link_to_send(client):
+    invite = make_invite(client)
+    assert invite["path"] == f"/i/{invite['id']}"
+    assert invite["status"] == "waiting"
+    assert client.get(invite["path"]).status_code == 200      # the page is served there
+
+
+def test_the_candidates_page_says_whether_the_link_is_still_good(client):
+    invite = make_invite(client)
+    state = client.get(f"/api/invites/{invite['id']}").json()
+    assert state["status"] == "waiting" and state["label"] == "Amina"
+    assert "session_id" not in state       # the page is told nothing it has no use for
+
+
+def test_asking_about_a_link_does_not_spend_it(client, minted):
+    invite = make_invite(client)
+    client.get(f"/api/invites/{invite['id']}")
+    assert client.post("/api/session", json={"language": "en", "invite": invite["id"]}).status_code == 200
+
+
+def test_an_interview_taken_once_cannot_be_taken_again(client, minted):
+    """The whole promise: a second attempt would be an attempt with the questions
+    already heard, which is the failure this replaces."""
+    invite = make_invite(client)
+    assert client.post("/api/session", json={"language": "en", "invite": invite["id"]}).status_code == 200
+    saved = client.post("/api/sessions", json={"turns": [], "invite": invite["id"]})
+    assert saved.status_code == 200
+
+    refused = client.post("/api/session", json={"language": "en", "invite": invite["id"]})
+    assert refused.status_code == 409
+    assert "already been taken" in refused.json()["detail"]
+    assert client.get(f"/api/invites/{invite['id']}").json()["status"] == "done"
+
+
+def test_the_finished_interview_is_attached_to_the_invitation(client, minted):
+    invite = make_invite(client)
+    client.post("/api/session", json={"language": "en", "invite": invite["id"]})
+    session_id = client.post("/api/sessions", json={"turns": [], "invite": invite["id"]}).json()["id"]
+    listed = client.get("/api/invites").json()["invites"]
+    assert listed[0]["session_id"] == session_id
+    assert client.get(f"/api/report/{session_id}").status_code == 200
+
+
+def test_an_invitation_that_does_not_exist_is_a_404(client, minted):
+    assert client.get("/api/invites/" + "a" * 32).status_code == 404
+    assert client.post("/api/session", json={"language": "en", "invite": "a" * 32}).status_code == 404
+
+
+def test_an_invitation_id_shaped_like_a_path_never_reaches_the_disk(client):
+    for bad in ("../server", "..%2Fserver", "nothex", "a" * 200):
+        assert client.get(f"/api/invites/{bad}").status_code == 404
+
+
+def test_an_interview_taken_without_a_link_still_works(client, minted):
+    """A recruiter trying out their own interview has no invitation, and should
+    not need one."""
+    assert client.post("/api/session", json={"language": "en"}).status_code == 200
+    assert client.post("/api/sessions", json={"turns": []}).status_code == 200
+
+
+def test_an_interview_is_saved_even_if_its_invitation_has_vanished(client, minted):
+    """The interview happened. Losing the recording because the paperwork went
+    missing would be the wrong trade."""
+    saved = client.post("/api/sessions", json={"turns": [], "invite": "b" * 32})
+    assert saved.status_code == 200
+    assert client.get(f"/api/report/{saved.json()['id']}").status_code == 200
