@@ -156,6 +156,31 @@ follow-up budget and the question limit. It is validated at startup, so a mistak
 stops the server with a sentence naming the problem instead of producing an
 interview with nothing to ask.
 
+## Deploying it
+
+`render.yaml` is a Render blueprint. The key is `sync: false`, so Render asks for
+it in its own dashboard and it never enters the repository.
+
+One setting matters more than it looks: **`PROBE_REGION`**, `us` or `eu`.
+
+AssemblyAI runs the Voice Agent API in two regions, and an agent belongs to the
+one it was created in. Left implicit, that region is wherever the caller happens
+to be — so a server in Oregon creates its interviewer in the US, a candidate in
+Europe looks for it in the EU, and the session is refused with `Agent not found`
+while creating the agent answered 201, reading it back answered 200 and minting a
+token answered 200. Nothing in any log says otherwise. Whether the interview
+starts comes down to the latitude of whoever opens the page.
+
+So set it to the region your candidates are in. `/api/health` reports which one
+is live, along with whether the key is present and whole and the status codes
+from creating an agent, reading it back and minting a token — booleans and status
+codes only, never any part of the key.
+
+Storage is the other choice, and it is a real trade rather than an oversight: a
+free instance has no persistent disk, so interviews and the links that produced
+them do not survive a redeploy. `render.yaml` says how to move to a paid instance
+with one, and ships on free.
+
 ## How it is put together
 
 | File | What it holds |
@@ -197,7 +222,7 @@ the frozen model, in the way any project shares a library.
 ## Tests
 
 ```bash
-python -m pytest -q          # 128
+python -m pytest -q          # 136
 ```
 
 Including `tests/test_browser.py`, which runs a whole conversation through the
