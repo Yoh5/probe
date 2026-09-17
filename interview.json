@@ -4,18 +4,15 @@
   "topics": [
     {
       "id": "project",
-      "goal": "A project they owned end to end: what they actually built, what broke, and one decision they made and why"
+      "goal": "Whether they have actually built and owned something, or only been near it. Come away knowing one thing that broke, what they chose to do about it, and what it cost them."
     },
     {
-      "id": "teamwork",
-      "goal": "A real disagreement with a teammate: what it was about, how it ended, and what they would do differently"
-    },
-    {
-      "id": "depth",
-      "goal": "How well they understand something they use every day: make them explain it in their own words and push on the edges"
+      "id": "judgement",
+      "goal": "How they behave when they are wrong or someone disagrees. Come away knowing one time they changed their mind, who changed it, and what they had believed before."
     }
   ],
-  "max_followups": 2,
+  "max_followups": 3,
+  "max_questions": 6,
   "languages": [
     "en",
     "fr",
@@ -23,6 +20,5 @@
     "de",
     "it",
     "pt"
-  ],
-  "max_questions": 8
+  ]
 }

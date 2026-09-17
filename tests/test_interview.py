@@ -112,3 +112,24 @@ def test_a_limit_too_small_for_the_topics_is_refused():
     should say so at startup rather than halfway through an interview."""
     with pytest.raises(interview.InterviewError, match="leaves no room"):
         interview.validate({**GOOD, "max_questions": len(GOOD["topics"])})
+
+
+def test_the_prompt_forbids_reading_a_topic_goal_out_as_a_question():
+    """The generic opening question is the one failure that survived every other
+    rule: the model turned "what the recruiter wants to come away with" straight
+    into "tell me about a project you owned end to end", which is precisely the
+    question a candidate has already rehearsed."""
+    prompt = interview.system_prompt(interview.validate(GOOD), "en").lower()
+    assert "is the goal read aloud" in prompt
+    assert "smallest concrete thing the candidate has already named" in prompt
+    assert "never ask the same question twice" in prompt
+    assert "most of your questions should be follow-ups" in prompt
+
+
+def test_the_brief_that_ships_is_a_short_interview_of_mostly_follow_ups():
+    """Six questions over two topics leaves three of them for follow-ups. More
+    topics would buy breadth at the price of the depth that cannot be rehearsed."""
+    shipped = interview.load(ROOT / "interview.json")
+    assert 4 <= shipped["max_questions"] <= 6
+    openings = 1 + len(shipped["topics"])          # the warm-up, then one per topic
+    assert shipped["max_questions"] - openings >= 2

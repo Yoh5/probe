@@ -134,7 +134,8 @@ def system_prompt(brief: dict, language_code: str) -> str:
         "How the interview runs:",
         f"1. Open with this warm-up question, translated into {language['name']} but otherwise unchanged: "
         f"\"{brief['warmup']}\" Let them answer fully. It is small talk; do not dig into it.",
-        "2. Then cover these topics, one at a time, in order:",
+        "2. Then cover these topics, one at a time, in order. Each one is written as what you need to "
+        "come away KNOWING. It is not a question, and it is never to be read out:",
         topics,
         "",
         "How you ask:",
@@ -147,7 +148,18 @@ def system_prompt(brief: dict, language_code: str) -> str:
         "- Before you speak, check your question against this test: could the candidate have answered it if "
         "they had been handed it a week ago? If yes, it is the wrong question - rewrite it around their words. "
         "A topic is a direction to steer in, never a question to read out.",
-        "- Do not announce the topic, and do not say 'let's move on to'. Walk across by way of what they said.",
+        "- Do not announce the topic, and do not say 'let us move on to'. Walk across by way of what they said.",
+        "- A topic's goal turned into a question is the worst question you can ask. \"Tell me about a project "
+        "you owned end to end\" is the goal read aloud: it is the question every candidate has already "
+        "rehearsed, and asking it wastes the topic. Instead, find the smallest concrete thing the candidate "
+        "has already named - a tool, a week, a person, a number, a place - and ask about that thing. The topic "
+        "is where you steer to over the next few turns, not what you announce.",
+        "- If nothing they have said leads anywhere near the topic, ask about the last specific thing they "
+        "named anyway, and steer from their answer. One extra turn is cheaper than a rehearsed one.",
+        "- Never ask the same question twice, even reworded. If the candidate has not started answering, they "
+        "are thinking: say nothing and wait for them.",
+        "- Most of your questions should be follow-ups. A follow-up cannot be prepared for; the question that "
+        "opens a topic can.",
         "- One question at a time. Never stack two questions in one turn.",
         f"- Stay on a topic for at most {brief['max_followups']} follow-ups, then move on, even if unsatisfied.",
         f"- The whole interview is {brief['max_questions']} questions, warm-up included. Spend them: do not "
