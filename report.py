@@ -1,0 +1,190 @@
+"""Probe - what the recruiter reads after the interview.
+
+The report is built from the saved session, never from a fresh opinion: every
+verdict in it was computed by `assess.py` while the interview was running, and is
+repeated here with the facts it was based on. Nothing is re-judged, and nothing is
+judged that was not measured.
+
+Three rules carried through from Unscripted:
+
+- THE MODEL OBSERVES, THE CODE DECIDES. The language model conducting the
+  interview never decided anything that appears here.
+- NOTHING MEASURED IS NOT A PASS. An answer too short to compare says exactly
+  that, and counts towards nothing.
+- A REPORT SUGGESTS, IT NEVER CONCLUDES. It says what to ask about at the next
+  interview. It does not rank, score or recommend a candidate.
+"""
+from __future__ import annotations
+
+import detector
+
+# What a signal means, in a sentence a recruiter can act on. Same wording the
+# interviewer was given, so the report and the interview cannot disagree.
+TITLES = {
+    "prepared": "Sounds prepared",
+    "spontaneous": "Sounds thought through on the spot",
+    "not_measured": "Too short to compare",
+    "baseline": "Warm-up, used as the comparison",
+}
+
+SUMMARIES = {
+    "prepared": "worth asking about again, in person",
+    "spontaneous": "nothing here suggests a rehearsed answer",
+    "not_measured": "not enough speech to say anything either way",
+    "baseline": "this is what the other answers were compared against",
+}
+
+
+def _text(words: list[dict]) -> str:
+    return " ".join(str(w.get("text", "")) for w in words).strip()
+
+
+def _seconds(words: list[dict]) -> float | None:
+    """How long the answer ran, from the first word to the last, in seconds."""
+    if len(words) < 2:
+        return None
+    return round((words[-1]["end"] - words[0]["start"]) / 1000, 1)
+
+
+def _speech_rate(words: list[dict]) -> int | None:
+    span = _seconds(words)
+    if not span or span < 1:
+        return None
+    return round(len(words) / span * 60)
+
+
+def question_before(turns: list[dict], began_ms: float) -> str:
+    """The last thing the interviewer said before this answer started.
+
+    Turns and words share the audio clock, so this is a comparison rather than a
+    guess. Counting turns instead would drift: the transcription splits one spoken
+    answer into several turns whenever the candidate pauses, while the interviewer
+    asks for one assessment per answer.
+    """
+    asked = [t for t in turns
+             if t.get("role") == "interviewer"
+             and isinstance(t.get("at"), (int, float)) and t["at"] <= began_ms]
+    return str(asked[-1].get("text", "")).strip() if asked else ""
+
+
+def _words_of(assessment: dict) -> list[dict]:
+    """The answer's words, when the session has them.
+
+    Sessions recorded before this was stored kept only a count under the same
+    name; a count is not a list, and the report says less about those rather than
+    inventing the difference.
+    """
+    words = assessment.get("answer_words")
+    if isinstance(words, list) and all(isinstance(w, dict) for w in words):
+        return words
+    stored = assessment.get("words")
+    return stored if isinstance(stored, list) and all(isinstance(w, dict) for w in stored) else []
+
+
+def _counted(assessment: dict) -> int:
+    """The word count the interview recorded, for sessions that kept only that."""
+    for key in ("words", "answer_words"):
+        stored = assessment.get(key)
+        if isinstance(stored, int) and not isinstance(stored, bool):
+            return stored
+    return 0
+
+
+def _answer(assessment: dict, turns: list[dict]) -> dict:
+    words = _words_of(assessment)
+    verdict = assessment.get("verdict", "not_measured")
+    # Without the answer's own words there is no way to say which question it
+    # followed, so the report says nothing rather than the wrong thing. What was
+    # assessed is still shown: `quote` was taken from the answer itself.
+    question = question_before(turns, words[0]["start"]) if words else ""
+    reasons = assessment.get("reasons") or []
+    return {
+        "topic_id": assessment.get("topic_id", ""),
+        "question": question,
+        "said": _text(words) or str(assessment.get("quote", "")).strip(),
+        "excerpt": not words,          # what is shown is the closing words, not all of them
+        "verdict": verdict,
+        "title": TITLES.get(verdict, TITLES["not_measured"]),
+        "summary": SUMMARIES.get(verdict, SUMMARIES["not_measured"]),
+        "measured": bool(assessment.get("measured")),
+        "reasons": reasons,
+        "score": assessment.get("score"),
+        "threshold": assessment.get("threshold"),
+        "facts": {
+            "words": len(words) or _counted(assessment),
+            "seconds": _seconds(words),
+            "words_per_minute": _speech_rate(words),
+        },
+    }
+
+
+def limits(model: dict | None = None) -> list[str]:
+    """What this report cannot tell you. It is part of the report, not a footnote.
+
+    Every line here is a fact about how the detector was built, taken from the
+    model itself where possible, so it cannot drift away from the truth as the
+    model is refit.
+    """
+    model = model or detector.load()
+    trained = model.get("trained_on", {})
+    answers = trained.get("answers")
+    speakers = trained.get("speakers")
+    accuracy = (model.get("unseen_session_accuracy") or {}).get("balanced_accuracy")
+    lines = [
+        "This measures how an answer was delivered, never whether it was true, and "
+        "never whether the candidate is any good at the job.",
+        "An answer can sound prepared because the candidate rehearsed, because they "
+        "have told the story many times, or because that is how they speak. The "
+        "report cannot tell those apart, and neither can anyone else from a recording.",
+        "Reading from notes is not misconduct. Treat a flag as something to ask "
+        "about, never as a reason to reject.",
+    ]
+    if answers:
+        who = "one speaker" if speakers == 1 else f"{speakers} speakers"
+        lines.append(f"The detector was fitted on {answers} labelled answers from {who}, "
+                     "and the signals were chosen after looking at that data. It has not "
+                     "been tested on a speaker it was not fitted on.")
+    if accuracy:
+        lines.append(f"Held out one session at a time, it was right {round(accuracy * 100)}% "
+                     "of the time. It will be wrong about some answers here.")
+    return lines
+
+
+def build(session: dict, model: dict | None = None) -> dict:
+    """The whole report for one saved interview."""
+    model = model or detector.load()
+    turns = session.get("turns") or []
+    assessments = session.get("assessments") or []
+
+    answers = [_answer(a, turns) for a in assessments]
+    graded = [a for a in answers if a["verdict"] in ("prepared", "spontaneous")]
+    flagged = [a for a in graded if a["verdict"] == "prepared"]
+
+    if not graded:
+        headline = "Nothing in this interview could be compared."
+        status = "none"
+    elif flagged:
+        headline = (f"{len(flagged)} of {len(graded)} comparable answers sound prepared."
+                    if len(flagged) > 1 else
+                    f"1 of {len(graded)} comparable answers sounds prepared.")
+        status = "flag"
+    else:
+        headline = f"None of the {len(graded)} comparable answers sound prepared."
+        status = "clear"
+
+    spoken = sum(a["facts"]["words"] or 0 for a in answers)
+    return {
+        "recorded_at": session.get("recordedAt", ""),
+        "language": session.get("language", ""),
+        "headline": headline,
+        "status": status,
+        "counts": {
+            "answers": len(answers),
+            "compared": len(graded),
+            "flagged": len(flagged),
+            "words_spoken": spoken,
+        },
+        "answers": answers,
+        "turns": [{"role": t.get("role", ""), "text": str(t.get("text", ""))} for t in turns],
+        "limits": limits(model),
+    }

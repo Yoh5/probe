@@ -36,6 +36,9 @@ const URGENT_MS = 15000;
 // The agent is blocked until it has its tool result. Sending it once the reply
 // is done is the polite order; waiting for that forever is a hang.
 const RESULT_GRACE_MS = 900;
+// After the last question, how long the interviewer gets to thank the candidate
+// and end the interview itself before the page ends it for them.
+const LAST_WORD_MS = 25000;
 
 const COPY = {
   en: { title: "A conversation, not a form.", lede: "Five minutes, out loud. The interviewer listens, answers, and asks what comes next from what you say.",
@@ -84,6 +87,7 @@ const COPY = {
 
 let languages = [];
 let parts = 0;             // how many parts the interview has, warm-up included
+let role = "";
 let language = "en";
 let agentWs, sttWs, audioContext, playerContext, player, stream;
 let samplesSent = 0;
@@ -97,6 +101,9 @@ let pendingResults = [];
 let flushTimer = null;
 let assessing = null;      // the assessment of the current answer, already under way
 const seen = new Set();    // topic ids the interview has reached, for the progress mark
+const answered = new Set();   // the start of every answer counted against the question limit
+let lastCallTimer = null;
+let turnId = 0;            // which answer is being given: the identity of an assessment
 let lastEvent = null;
 let agentSpoke = false;   // did the last reply actually say anything out loud?
 let finished = false;
@@ -110,74 +117,24 @@ function show(name) {
   for (const screen of document.querySelectorAll(".screen")) screen.hidden = screen.id !== `screen-${name}`;
 }
 
-// -- the line ---------------------------------------------------------------------
+// -- the microphone ---------------------------------------------------------------
 //
-// One canvas, two states. The candidate's voice draws mint bars from the real
-// microphone level; while the interviewer speaks, an amber wave travels across.
-// Nothing else on the page animates.
+// One number on screen, and it is the real one: the level of the audio actually
+// being sent. The ring grows with it, so a candidate can see the microphone is
+// hearing them without being asked to read anything.
 
-const levels = new Array(52).fill(0);
 let speaking = false;
-let phase = 0;
-const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-function drawLine(canvas) {
-  if (!canvas) return;
-  const ratio = window.devicePixelRatio || 1;
-  const width = canvas.clientWidth;
-  const height = canvas.clientHeight;
-  canvas.width = width * ratio;
-  canvas.height = height * ratio;
-  const context = canvas.getContext("2d");
-  context.scale(ratio, ratio);
-  context.clearRect(0, 0, width, height);
-  const middle = height / 2;
-  const step = width / levels.length;
-
-  context.lineWidth = 3;
-  context.lineCap = "round";
-  context.strokeStyle = speaking ? "#5B2A4E" : "#125C55";
-  for (let i = 0; i < levels.length; i++) {
-    const x = i * step + step / 2;
-    // Idle, the line breathes so the page looks live before anyone speaks;
-    // while the interviewer talks, an amber wave travels across it.
-    const idle = still ? 0.06 : 0.06 + Math.abs(Math.sin(i * 0.22 + phase * 0.35)) * 0.10;
-    const travelling = speaking
-      ? Math.abs(Math.sin(i * 0.40 + phase)) * (still ? 0.25 : 0.55)
-      : Math.max(levels[i], idle);
-    const size = Math.max(1.2, travelling * (height * 0.44));
-    context.beginPath();
-    context.moveTo(x, middle - size);
-    context.lineTo(x, middle + size);
-    context.stroke();
-  }
-  context.strokeStyle = "rgba(27,24,21,.16)";
-  context.lineWidth = 1;
-  context.beginPath();
-  context.moveTo(0, middle);
-  context.lineTo(width, middle);
-  context.stroke();
-}
-
-let drawing = false;
-
-function animate() {
-  const canvas = $("line-live");
-  if (!canvas?.offsetParent) { drawing = false; return; }   // nothing on screen to draw on
-  if (!still) phase += speaking ? 0.14 : 0.03;
-  drawLine(canvas);
-  requestAnimationFrame(animate);
-}
-
-function startDrawing() {
-  if (drawing) return;
-  drawing = true;
-  requestAnimationFrame(animate);
-}
+let level = 0;
+let levelPainted = 0;
 
 function pushLevel(peak) {
-  levels.push(Math.min(1, peak * 2.2));
-  levels.shift();
+  // Rises with the voice, falls back slowly, so the ring follows speech rather
+  // than flickering on every 50 ms packet.
+  level = Math.max(Math.min(1, peak * 2.4), level * 0.82);
+  const rounded = Math.round(level * 20) / 20;
+  if (rounded === levelPainted) return;      // the same value is not worth a repaint
+  levelPainted = rounded;
+  $("mic")?.style.setProperty("--level", String(rounded));
 }
 
 // -- language and copy ----------------------------------------------------------------
@@ -198,6 +155,7 @@ function applyCopy() {
   $("t-done-lede").textContent = text.doneLede;
   $("retry").textContent = text.retry;
   $("clock-label").textContent = text.budget;
+  $("role").textContent = role;
   $("state-label").textContent = text.connecting;
   renderStage();
 }
@@ -226,6 +184,7 @@ async function loadInterview() {
     const brief = await response.json();
     languages = brief.languages;
     parts = brief.parts || 0;
+    role = brief.role || "";
     const preferred = (navigator.language || "en").slice(0, 2);
     language = languages.some((l) => l.code === preferred) ? preferred : languages[0].code;
   } catch (error) {
@@ -382,6 +341,7 @@ function holdFloor() {
 
 function giveTheFloor() {
   holdFloor();
+  turnId += 1;
   budgetEndsAt = performance.now() + ANSWER_MS;
   $("clock")?.removeAttribute("hidden");
   renderClock();
@@ -442,8 +402,9 @@ function timeIsUp() {
 
 function setSpeaking(on) {
   speaking = on;
-  $("dot").classList.toggle("speaking", on);
+  $("mic")?.classList.toggle("speaking", on);
   $("state-label").textContent = on ? copy().speaking : copy().listening;
+  if (on) pushLevel(0);
 }
 
 // -- the agent's events -------------------------------------------------------------------
@@ -456,7 +417,6 @@ function handleAgent(message) {
       startAudio().then(() => {
         show("interview");
         renderStage();
-        startDrawing();
         agentWs.send(JSON.stringify({ type: "reply.create",
           instructions: "Open the interview now: greet in one short sentence, then ask the warm-up question." }));
       });
@@ -483,7 +443,7 @@ function handleAgent(message) {
       // by the time the tool call arrives the verdict is already waiting, and the
       // pause between an answer and the next question is a beat, not a wait.
       lastEvent = "input.speech.stopped";
-      assessmentFor(answerStartMs);
+      assessmentFor();
       break;
     case "reply.started":
       lastEvent = "reply.started";
@@ -521,34 +481,55 @@ async function handleTool(call) {
   if (call.name !== "assess_answer") return queueResult(call.call_id, { error: "unknown tool" });
 
   const topic = String(call.arguments?.topic_id ?? "warmup");
-  const { warmup, answerWords, verdict } = await assessmentFor(answerStartMs);
+  const { warmup, answerWords, verdict } = await assessmentFor();
   if (warmup && answerWords.length) baselineWords = answerWords;
   seen.add(topic);
   renderStage();
-  assessments.push({ topic_id: topic, claim: call.arguments?.claim ?? "", words: answerWords, ...verdict });
+  // answer_words, not words: the verdict carries a word COUNT under that name and
+  // the spread below would quietly replace the list with it - which is how the
+  // first reports were built with no answers in them.
+  assessments.push({ topic_id: topic, claim: call.arguments?.claim ?? "", ...verdict, answer_words: answerWords });
   queueResult(call.call_id, { instruction: verdict.instruction, verdict: verdict.verdict });
+  // The interview has used up its questions. The agent has been told to thank the
+  // candidate and end; if it asks one more instead, the page ends it anyway. A
+  // limit a model can talk itself out of is not a limit.
+  if (verdict.last && !lastCallTimer) {
+    $("clock")?.setAttribute("hidden", "");
+    lastCallTimer = setTimeout(finish, LAST_WORD_MS);
+  }
 }
 
 // The assessment of one answer, computed once. It starts the moment the candidate
 // stops speaking, so by the time the agent asks for it the verdict is usually
 // already waiting: the pause between an answer and the next question is a beat
 // rather than a wait.
-function assessmentFor(start) {
-  if (assessing && assessing.start === start) {
+function assessmentFor() {
+  // Keyed on which answer this is, not on when it started. Two answers can share
+  // a start - the clock runs on audio sent, and it does not move while nothing is
+  // being sent - and reusing one answer's verdict for the next is silent and
+  // wrong. A turn number cannot collide.
+  const id = turnId;
+  const start = answerStartMs;
+  if (assessing && assessing.id === id) {
     return assessing.promise.then((done) => {
       // The pause that started it was a thinking pause and the candidate carried
       // on: that assessment was made on half an answer, so it is made again.
       if (words.length === done.seen) return done;
-      assessing = { start, promise: assessAnswer(start) };
+      assessing = { id, promise: assessAnswer(start, id) };
       return assessing.promise;
     });
   }
-  assessing = { start, promise: assessAnswer(start) };
+  assessing = { id, promise: assessAnswer(start, id) };
   return assessing.promise;
 }
 
-async function assessAnswer(start) {
+async function assessAnswer(start, id) {
   const warmup = !baselineWords;
+  // One assessment per answer, so counting answers counts questions asked. Keyed
+  // on the turn, so an assessment redone after a thinking pause does not count
+  // the question twice.
+  answered.add(id);
+  const asked = answered.size;
   await settle();
   const answerWords = words.filter((w) => w.start >= start);
   let verdict;
@@ -556,7 +537,7 @@ async function assessAnswer(start) {
     const response = await fetch("/api/assess", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ answer_words: answerWords, baseline_words: warmup ? null : baselineWords }),
+      body: JSON.stringify({ answer_words: answerWords, baseline_words: warmup ? null : baselineWords, asked }),
     });
     verdict = await response.json();
     if (!response.ok) throw new Error(verdict.detail || `HTTP ${response.status}`);
@@ -640,6 +621,7 @@ function writeTurn(role, text) {
 async function finish() {
   if (finished) return;
   finished = true;
+  clearTimeout(lastCallTimer);
   holdFloor();
   show("saving");
   stream?.getTracks().forEach((track) => track.stop());

@@ -50,12 +50,23 @@
       padding: 24px 22px max(24px, env(safe-area-inset-bottom));
     }
 
+    /* A navigation bar, not a signature in the corner: the mark and the name sit
+       on the top rule the way they do on every other page of the product. */
+    .nav {
+      display: flex; align-items: center; gap: 10px;
+      padding-bottom: 14px; border-bottom: 1px solid var(--rule);
+    }
+    .mark {
+      width: 24px; height: 24px; border-radius: 7px; flex: none;
+      background: var(--them); color: var(--sheet);
+      display: grid; place-items: center;
+    }
+    .mark svg { width: 15px; height: 15px; }
+    .name { font: 600 17px/1 var(--sans); letter-spacing: -0.01em; }
+    .role { margin-left: auto; color: var(--soft); font-size: 13.5px; text-align: right; }
     /* Six language names do not fit beside a wordmark on a phone, so they get
        their own row and read left to right like everything else. */
-    header { display: flex; flex-direction: column; gap: 14px; }
-    .wordmark { font: 500 21px/1 var(--serif); letter-spacing: .005em; }
-    .wordmark b { font-weight: 400; color: var(--them); }
-    .languages { display: flex; gap: 18px 20px; flex-wrap: wrap; }
+    .languages { display: flex; gap: 18px 20px; flex-wrap: wrap; padding-top: 14px; }
     .languages button {
       position: relative; background: none; border: 0; padding: 0 0 4px; cursor: pointer;
       color: var(--soft); font: 500 14px/1 var(--sans);
@@ -130,10 +141,29 @@
       font: 400 clamp(21px, 5.4vw, 27px)/1.28 var(--serif);
       letter-spacing: -0.008em; margin: 0; text-wrap: pretty;
     }
-    .status { display: flex; align-items: center; gap: 9px; color: var(--soft); font-size: 13.5px; margin: 16px 0 0; }
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--you); flex: none; }
-    .dot.speaking { background: var(--them); }
-    .line { width: 100%; height: 44px; display: block; margin: 8px 0 0; }
+    /* One circle whose ring grows with the level actually being sent. If it
+       moves, the microphone is hearing you - which is the only thing a candidate
+       needs to know about the audio. The box is sized for the ring at full level
+       so a loud answer never pushes the label below it. */
+    .listen { display: flex; flex-direction: column; align-items: center; margin: 22px 0 0; }
+    .mic { --level: 0; position: relative; width: 108px; height: 108px; display: grid; place-items: center; }
+    .mic::before {
+      content: ""; position: absolute; inset: 16px; border-radius: 50%;
+      background: color-mix(in srgb, var(--you) 20%, transparent);
+      transform: scale(calc(1 + var(--level) * 0.34));
+      transition: transform 90ms linear, background .3s;
+    }
+    .mic .core {
+      position: relative; width: 60px; height: 60px; border-radius: 50%;
+      background: var(--you); color: var(--sheet);
+      display: grid; place-items: center; transition: background .3s;
+    }
+    .mic .core svg { width: 26px; height: 26px; }
+    /* While the interviewer talks the ring belongs to it, and stops moving. */
+    .mic.speaking::before { background: color-mix(in srgb, var(--them) 20%, transparent); transform: none; }
+    .mic.speaking .core { background: var(--them); }
+    .status { color: var(--soft); font-size: 13.5px; margin: 6px 0 0; text-align: center; min-height: 1.4em; }
+    @media (prefers-reduced-motion: reduce) { .mic::before { transition: background .3s; transform: none; } }
 
     /* Set like a script: the speaker runs into their own line in their own colour,
        so the attribution costs no extra row and never falls below contrast. */
@@ -161,10 +191,12 @@
 </head>
 <body>
 <div class="page">
-  <header>
-    <span class="wordmark">probe<b>.</b></span>
-    <nav class="languages" id="languages" aria-label="Interview language"></nav>
+  <header class="nav">
+    <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 12h2.5M9.5 8v8M14.5 5v14M19.5 10v4"/></svg></span>
+    <span class="name">Probe</span>
+    <span class="role" id="role"></span>
   </header>
+  <nav class="languages" id="languages" aria-label="Interview language"></nav>
 
   <!-- 1. Before we start -->
   <section class="screen" id="screen-welcome">
@@ -193,8 +225,12 @@
     <div class="sheet">
       <p class="said" id="said"></p>
     </div>
-    <p class="status"><span class="dot" id="dot"></span><span id="state-label">Connecting</span></p>
-    <canvas class="line" id="line-live" aria-hidden="true"></canvas>
+    <div class="listen">
+      <div class="mic" id="mic" aria-hidden="true">
+        <span class="core"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
+      </div>
+      <p class="status" id="state-label">Connecting</p>
+    </div>
     <div class="transcript" id="transcript" aria-live="polite"></div>
     <button class="ghost" id="finish">End the interview</button>
   </section>

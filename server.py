@@ -35,6 +35,7 @@ from fastapi.staticfiles import StaticFiles
 import assess
 import detector
 import interview
+import report
 
 ROOT = Path(__file__).parent
 load_dotenv(ROOT / ".env")
@@ -81,6 +82,16 @@ app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(ROOT / "static" / "index.html")
+
+
+@app.get("/report")
+def report_page() -> FileResponse:
+    return FileResponse(ROOT / "static" / "report.html")
+
+
+@app.get("/reports")
+def reports_page() -> FileResponse:
+    return FileResponse(ROOT / "static" / "reports.html")
 
 
 @app.get("/api/interview")
@@ -222,7 +233,12 @@ async def assess_answer(request: Request) -> dict:
         base = assess.from_assemblyai(baseline) if baseline else None
     except (KeyError, TypeError, ValueError):
         raise HTTPException(422, "each word needs text, start and end")
-    return assess.assess(answer, base, MODEL)
+    asked = body.get("asked")
+    if asked is not None and (not isinstance(asked, int) or isinstance(asked, bool) or asked < 0):
+        raise HTTPException(422, "asked must be a whole number of questions")
+    # The browser says how many questions have been asked; how many are allowed is
+    # read here, from the brief, where the candidate cannot reach it.
+    return assess.assess(answer, base, MODEL, asked=asked, limit=BRIEF["max_questions"])
 
 
 @app.post("/api/sessions")
@@ -254,6 +270,36 @@ def _read_session(session_id: str) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+@app.get("/api/sessions")
+def list_sessions() -> dict:
+    """Every saved interview, newest first, with just enough to choose one."""
+    if not SESSIONS_DIR.is_dir():
+        return {"sessions": []}
+    found = []
+    for path in sorted(SESSIONS_DIR.glob("*.json"), reverse=True):
+        if not SESSION_ID.match(path.stem):
+            continue
+        try:
+            saved = json.loads(path.read_text(encoding="utf-8"))
+        except ValueError:
+            continue    # a half-written file is skipped, never fatal to the list
+        built = report.build(saved, MODEL)
+        found.append({"id": path.stem, "recorded_at": built["recorded_at"],
+                      "language": built["language"], "headline": built["headline"],
+                      "status": built["status"], "counts": built["counts"]})
+    return {"sessions": found}
+
+
 @app.get("/api/sessions/{session_id}")
 def load_session(session_id: str) -> dict:
     return _read_session(session_id)
+
+
+@app.get("/api/report/{session_id}")
+def build_report(session_id: str) -> dict:
+    """The recruiter's report for one interview.
+
+    Every verdict in it was computed while the interview was running. Nothing is
+    judged again here, so a report cannot disagree with the interview it describes.
+    """
+    return report.build(_read_session(session_id), MODEL)

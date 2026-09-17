@@ -131,3 +131,28 @@ def test_an_answer_with_no_words_still_forbids_a_generic_question():
     assert r["quote"] == ""
     assert "not on a topic heading" in r["instruction"]
     assert "could not have answered before speaking" in r["instruction"]
+
+
+def test_the_last_question_ends_the_interview_whatever_the_answer_was():
+    """The count is kept by code. A model asked to count its own questions keeps
+    finding one more worth asking, which is how a screening runs to twenty."""
+    for answer, baseline in ((CHATTY, None), (WRITTEN, CHATTY), ("too short", CHATTY)):
+        r = assess.assess(converted(answer), converted(baseline) if baseline else None,
+                          MODEL, asked=8, limit=8)
+        assert r["last"] is True
+        assert "call end_interview now" in r["instruction"]
+        assert "Do not ask another one" in r["instruction"]
+
+
+def test_the_verdict_is_still_reported_on_the_last_question():
+    """The interview ends because it ran out of questions, not because of anything
+    the candidate said. The last answer is measured like any other."""
+    r = assess.assess(converted(WRITTEN), converted(CHATTY), MODEL, asked=8, limit=8)
+    assert r["verdict"] == "prepared" and r["measured"] is True
+
+
+def test_without_a_limit_nothing_changes():
+    plain = assess.assess(converted(WRITTEN), converted(CHATTY), MODEL)
+    assert plain["last"] is False
+    assert plain["instruction"] == assess.assess(converted(WRITTEN), converted(CHATTY), MODEL,
+                                                 asked=2, limit=8)["instruction"]

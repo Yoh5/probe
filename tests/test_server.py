@@ -176,3 +176,86 @@ def test_the_page_is_told_the_role_and_the_languages_only(client):
     assert body["role"] and [l["code"] for l in body["languages"]][:2] == ["en", "fr"]
     # What the interviewer is told to look for is not the candidate's business.
     assert "topics" not in body and "goal" not in json.dumps(body)
+
+
+# -- the report the recruiter reads -------------------------------------------------
+
+def saved(client):
+    """One interview through the real save route, returning its id."""
+    answer = aai_words(WRITTEN, start_ms=12000)
+    response = client.post("/api/sessions", json={
+        "recordedAt": "2026-09-17T09:00:00Z",
+        "language": "en",
+        "turns": [
+            {"role": "interviewer", "text": "What did you do yesterday?", "at": 1000},
+            {"role": "candidate", "text": "I got up early", "at": 9000},
+            {"role": "interviewer", "text": "Tell me about a project", "at": 11000},
+            {"role": "candidate", "text": WRITTEN, "at": 30000},
+        ],
+        "assessments": [
+            {"topic_id": "warmup", "verdict": "baseline", "quote": "early",
+             "answer_words": aai_words(CHATTY, start_ms=2000)},
+            {"topic_id": "project", "verdict": "prepared", "measured": True, "score": 1.2,
+             "reasons": ["longer words than in the warm-up"], "quote": "defensive programming",
+             "answer_words": answer},
+        ],
+    })
+    assert response.status_code == 200
+    return response.json()["id"]
+
+
+def test_a_saved_interview_can_be_read_back_as_a_report(client):
+    built = client.get(f"/api/report/{saved(client)}").json()
+    assert built["status"] == "flag"
+    assert built["answers"][1]["question"] == "Tell me about a project"
+    assert built["limits"]
+
+
+def test_a_report_for_an_interview_that_does_not_exist_is_a_404(client):
+    assert client.get("/api/report/20260917T090000Z-deadbeef").status_code == 404
+
+
+def test_a_report_id_shaped_like_a_path_never_reaches_the_disk(client):
+    """The id becomes a file name, so anything that is not an id is refused before
+    it is used as one."""
+    for bad in ("../server", "..%2Fserver", "x" * 200, "20260917T090000Z-nothex!"):
+        assert client.get(f"/api/report/{bad}").status_code == 404
+
+
+def test_the_list_shows_every_interview_newest_first(client):
+    first, second = saved(client), saved(client)
+    listed = client.get("/api/sessions").json()["sessions"]
+    assert [s["id"] for s in listed] == sorted({first, second}, reverse=True)
+    assert all(s["headline"] and s["status"] for s in listed)
+
+
+def test_a_broken_file_is_skipped_rather_than_breaking_the_list(client):
+    saved(client)
+    (server.SESSIONS_DIR / "20260917T090000Z-aaaaaaaa.json").write_text("{not json", encoding="utf-8")
+    assert len(client.get("/api/sessions").json()["sessions"]) == 1
+
+
+# -- the question limit -------------------------------------------------------------
+
+def test_the_interview_is_told_to_stop_when_the_questions_run_out(client):
+    """The allowance is read from the brief on the server. A browser that says it
+    has asked fewer questions than it has cannot buy itself more."""
+    limit = server.BRIEF["max_questions"]
+    body = {"answer_words": aai_words(WRITTEN), "baseline_words": aai_words(CHATTY), "asked": limit}
+    verdict = client.post("/api/assess", json=body).json()
+    assert verdict["last"] is True
+    assert "call end_interview now" in verdict["instruction"]
+    assert verdict["verdict"] == "prepared"      # still measured, still reported
+
+
+def test_before_the_limit_the_interview_carries_on(client):
+    body = {"answer_words": aai_words(WRITTEN), "baseline_words": aai_words(CHATTY), "asked": 1}
+    verdict = client.post("/api/assess", json=body).json()
+    assert verdict["last"] is False
+    assert "end_interview" not in verdict["instruction"]
+
+
+def test_a_nonsense_question_count_is_refused(client):
+    for bad in ("many", -1, 2.5):
+        body = {"answer_words": aai_words(WRITTEN), "baseline_words": aai_words(CHATTY), "asked": bad}
+        assert client.post("/api/assess", json=body).status_code == 422

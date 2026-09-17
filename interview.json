@@ -23,5 +23,6 @@
     "de",
     "it",
     "pt"
-  ]
+  ],
+  "max_questions": 8
 }

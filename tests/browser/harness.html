@@ -21,6 +21,8 @@ const results = [];
 const sent = [];        // every message the page sent to the "agent"
 let socket = null;      // the page's agent websocket
 let assessCalls = 0;
+let lastAsked = null;
+let outOfQuestions = false;
 
 // -- time ------------------------------------------------------------------------
 const realNow = performance.now.bind(performance);
@@ -60,8 +62,9 @@ window.fetch = async (url, options) => {
   }
   if (url === "/api/assess") {
     assessCalls += 1;
+    lastAsked = body.asked;
     return reply({ verdict: "spontaneous", instruction: "Move the interview forward.",
-                   words: (body.answer_words || []).length });
+                   words: (body.answer_words || []).length, last: outOfQuestions });
   }
   return reply({ id: "session-1" });
 };
@@ -176,6 +179,24 @@ async function run() {
   const shown = clock.hidden === false && /\d/.test(document.getElementById("clock-time").textContent);
   check("the candidate can see how long the answer may run", shown,
     `hidden=${clock.hidden} text=${document.getElementById("clock-time").textContent}`);
+
+  // 7. The interview counts its own questions, and stops when they run out even
+  //    if the interviewer would rather ask another.
+  check("the page tells the server how many questions have been asked",
+    typeof lastAsked === "number" && lastAsked > 0, `asked=${lastAsked}`);
+
+  outOfQuestions = true;
+  agentSays("And one more thing?");
+  agent({ type: "input.speech.started" });
+  agent({ type: "input.speech.stopped" });
+  agent({ type: "tool.call", name: "assess_answer", call_id: "call-last", arguments: { topic_id: "depth", claim: "x" } });
+  await wait(4000);
+  check("the closing instruction reaches the interviewer",
+    toolResults().some((m) => m.call_id === "call-last"));
+  await wait(30000);        // the interviewer says nothing and never ends it
+  check("the page ends the interview itself once the questions are spent",
+    document.getElementById("screen-interview").hidden,
+    `showing: ${[...document.querySelectorAll(".screen")].filter((s) => !s.hidden).map((s) => s.id)}`);
 
   const failed = results.filter((r) => !r.ok);
   document.title = failed.length

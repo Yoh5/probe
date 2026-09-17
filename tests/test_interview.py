@@ -93,3 +93,22 @@ def test_an_unknown_language_falls_back_to_the_first_offered():
     brief = interview.validate(GOOD)
     assert interview.voice_for("zz", brief) == "alba"
     assert "Speak English" in interview.system_prompt(brief, "zz")
+
+
+def test_the_interview_has_a_question_limit():
+    brief = interview.validate({**GOOD, "max_questions": 6})
+    assert brief["max_questions"] == 6
+    assert "6 questions, warm-up included" in interview.system_prompt(brief, "en")
+
+
+@pytest.mark.parametrize("bad", ["eight", 1, 21, 2.5, True])
+def test_a_question_limit_that_is_not_a_sane_whole_number_is_refused(bad):
+    with pytest.raises(interview.InterviewError, match="max_questions"):
+        interview.validate({**GOOD, "max_questions": bad})
+
+
+def test_a_limit_too_small_for_the_topics_is_refused():
+    """Fewer questions than topics is a brief that cannot be carried out, and it
+    should say so at startup rather than halfway through an interview."""
+    with pytest.raises(interview.InterviewError, match="leaves no room"):
+        interview.validate({**GOOD, "max_questions": len(GOOD["topics"])})

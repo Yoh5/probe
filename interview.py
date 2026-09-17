@@ -41,7 +41,7 @@ def validate(data: object) -> dict:
     """The interview brief, cleaned, or InterviewError with the first problem."""
     if not isinstance(data, dict):
         raise InterviewError("the file must be an object")
-    unknown = set(data) - {"role", "warmup", "topics", "max_followups", "languages"}
+    unknown = set(data) - {"role", "warmup", "topics", "max_followups", "max_questions", "languages"}
     if unknown:
         raise InterviewError(f"unknown fields: {', '.join(sorted(unknown))}")
 
@@ -81,6 +81,13 @@ def validate(data: object) -> dict:
     if not isinstance(follow_ups, int) or isinstance(follow_ups, bool) or not 1 <= follow_ups <= 4:
         raise InterviewError("max_followups must be a whole number between 1 and 4")
 
+    limit = data.get("max_questions", 8)
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 2 <= limit <= 20:
+        raise InterviewError("max_questions must be a whole number between 2 and 20")
+    if limit <= len(cleaned):
+        raise InterviewError(f"max_questions ({limit}) leaves no room for {len(cleaned)} topics "
+                             "plus the warm-up")
+
     offered = data.get("languages", list(LANGUAGES))
     if not isinstance(offered, list) or not offered:
         raise InterviewError("languages must be a non-empty list")
@@ -90,7 +97,7 @@ def validate(data: object) -> dict:
                              f"choose from {', '.join(LANGUAGES)}")
 
     return {"role": role.strip(), "warmup": " ".join(warmup.split()), "topics": cleaned,
-            "max_followups": follow_ups,
+            "max_followups": follow_ups, "max_questions": limit,
             "languages": [{"code": code, **LANGUAGES[code]} for code in offered]}
 
 
@@ -143,6 +150,9 @@ def system_prompt(brief: dict, language_code: str) -> str:
         "- Do not announce the topic, and do not say 'let's move on to'. Walk across by way of what they said.",
         "- One question at a time. Never stack two questions in one turn.",
         f"- Stay on a topic for at most {brief['max_followups']} follow-ups, then move on, even if unsatisfied.",
+        f"- The whole interview is {brief['max_questions']} questions, warm-up included. Spend them: do not "
+        "linger on one topic until there is nothing left for the others. You will be told when the last one "
+        "has been asked.",
         "",
         "The tool:",
         "- After every candidate answer, call assess_answer with the topic id and one line saying what they "

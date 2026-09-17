@@ -77,6 +77,18 @@ def _ground(quote: str) -> str:
             "who lived it would know.")
 
 
+def closing(quote: str = "") -> str:
+    """What to say when the interview has used up its questions.
+
+    The count is kept by code rather than by the model, because a model asked to
+    count its own questions will keep finding one more worth asking - which is how
+    a five minute screening becomes twenty.
+    """
+    return ("That was the last question of the interview: the allowance is used up. Do not ask "
+            "another one, not even a short one. Thank the candidate in one sentence and call "
+            "end_interview now.")
+
+
 def _guidance(kind: str, reasons: list[str], quote: str = "") -> str:
     ground = _ground(quote)
     if kind == "prepared":
@@ -96,7 +108,8 @@ def _guidance(kind: str, reasons: list[str], quote: str = "") -> str:
             f"press them about it. Ask one short question that takes the thread further. {ground}")
 
 
-def assess(answer: list[dict], baseline: list[dict] | None, model: dict | None = None) -> dict:
+def assess(answer: list[dict], baseline: list[dict] | None, model: dict | None = None,
+           asked: int | None = None, limit: int | None = None) -> dict:
     """The verdict for one answer, in words the agent and the report can both use.
 
     `answer` and `baseline` are words already converted by `from_assemblyai`.
@@ -108,15 +121,23 @@ def assess(answer: list[dict], baseline: list[dict] | None, model: dict | None =
 
     quote = quote_of(answer)
     result["quote"] = quote
+    # The verdict is still computed and still reported: the interview ends because
+    # it has run out of questions, not because of anything the candidate said.
+    result["last"] = bool(asked is not None and limit is not None and asked >= limit)
+
+    def finish(verdict: dict) -> dict:
+        if verdict["last"]:
+            verdict["instruction"] = closing(quote)
+        return verdict
 
     if baseline is None:
         result["verdict"] = "baseline"
         result["instruction"] = _guidance("baseline", [], quote)
-        return result
+        return finish(result)
     if len(answer) < MIN_WORDS or len(baseline) < MIN_BASELINE_WORDS:
         result["verdict"] = "not_measured"
         result["instruction"] = _guidance("not_measured", [], quote)
-        return result
+        return finish(result)
 
     own = features.extract(answer, None)
     base = features.extract(baseline, None)
@@ -126,11 +147,11 @@ def assess(answer: list[dict], baseline: list[dict] | None, model: dict | None =
     if scored["score"] is None:
         result["verdict"] = "not_measured"
         result["instruction"] = _guidance("not_measured", [], quote)
-        return result
+        return finish(result)
 
     reasons = [detector.EXPLANATIONS[n] for n in scored["pointing_to_reading"] if n in detector.EXPLANATIONS]
     kind = "prepared" if scored["suggests_reading"] else "spontaneous"
     result.update(measured=True, sounds_prepared=scored["suggests_reading"], score=scored["score"],
                   reasons=reasons if kind == "prepared" else [], verdict=kind,
                   instruction=_guidance(kind, reasons, quote))
-    return result
+    return finish(result)
