@@ -12,10 +12,10 @@ const $ = (id) => document.getElementById(id);
 // An icon per status, drawn rather than coloured in, so the meaning survives a
 // black and white print where the colour does not.
 const ICONS = {
-  flag: "M12 3.4 21.2 19H2.8z M12 9.6v3.9 M12 16.3v.1",
-  clear: "M4.5 12.5 9.5 17.5 19.5 6.5",
-  none: "M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17z M8.5 12h7",
-  brand: "M4 18V9 M10 18V5 M16 18v-7",
+  flag: ["M12 3.4 21.2 19H2.8z", "M12 9.6v3.9", "M12 16.3v.1"],
+  clear: ["M4.5 12.5 9.5 17.5 19.5 6.5"],
+  none: ["M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17z", "M8.5 12h7"],
+  brand: ["M12 5.7v.1", "M8.4 10.2Q12 14.6 15.6 10.2", "M5.2 13.4Q12 21.4 18.8 13.4"],
 };
 const WORDS = {
   flag: "Worth a second look",
@@ -41,9 +41,11 @@ function tile(kind) {
   svg.setAttribute("stroke-width", "2.2");
   svg.setAttribute("stroke-linecap", "round");
   svg.setAttribute("stroke-linejoin", "round");
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("d", ICONS[kind] || ICONS.none);
-  svg.append(path);
+  for (const d of ICONS[kind] || ICONS.none) {
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", d);
+    svg.append(path);
+  }
   box.append(svg);
   return box;
 }
@@ -62,7 +64,7 @@ function stat(value, label) {
 }
 
 function summary(report) {
-  const card = el("section", "card");
+  const card = el("section", `card ${report.status}`);
   const head = el("div", "summary-head");
   head.append(tile(report.status === "flag" ? "flag" : report.status === "clear" ? "clear" : "none"),
               el("p", "headline", report.headline));
@@ -73,9 +75,12 @@ function summary(report) {
   card.append(el("p", "meta", meta.join("  ·  ")));
 
   const stats = el("div", "stats");
+  const flagged = stat(report.counts.flagged, "sound prepared");
+  if (report.counts.flagged) flagged.classList.add("flag");
+  else if (report.counts.compared) flagged.classList.add("clear");
   stats.append(stat(report.counts.answers, "answers"),
                stat(report.counts.compared, "compared"),
-               stat(report.counts.flagged, "sound prepared"),
+               flagged,
                stat(report.counts.words_spoken, "words spoken"));
   card.append(stats);
   return card;

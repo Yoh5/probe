@@ -28,9 +28,9 @@ function when(iso, id) {
 const CHIPS = { flag: "Worth a second look", clear: "Nothing flagged", none: "Nothing comparable" };
 
 const ICONS = {
-  flag: "M12 3.4 21.2 19H2.8z M12 9.6v3.9 M12 16.3v.1",
-  clear: "M4.5 12.5 9.5 17.5 19.5 6.5",
-  none: "M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17z M8.5 12h7",
+  flag: ["M12 3.4 21.2 19H2.8z", "M12 9.6v3.9", "M12 16.3v.1"],
+  clear: ["M4.5 12.5 9.5 17.5 19.5 6.5"],
+  none: ["M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17z", "M8.5 12h7"],
 };
 
 function tile(kind) {
@@ -43,9 +43,11 @@ function tile(kind) {
   svg.setAttribute("stroke-width", "2.2");
   svg.setAttribute("stroke-linecap", "round");
   svg.setAttribute("stroke-linejoin", "round");
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("d", ICONS[kind] || ICONS.none);
-  svg.append(path);
+  for (const d of ICONS[kind] || ICONS.none) {
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", d);
+    svg.append(path);
+  }
   box.append(svg);
   return box;
 }

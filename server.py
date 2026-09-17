@@ -159,13 +159,12 @@ async def _agent_id(client: httpx.AsyncClient, key: str, language: str) -> str:
         "voice": {"voice_id": interview.voice_for(language, BRIEF)},
         "tools": TOOLS,
         "input": {
-            # An interview answer has thinking pauses in it, and the hardest
-            # question is the one that takes longest to start answering. The
-            # interviewer waits the whole time it gave: 2.4 s of silence before it
-            # takes back a turn that sounded finished, 5 s before it takes back one
-            # that sounded unfinished. Cutting a candidate off mid-thought is the
-            # one thing that makes an interview feel like a form.
-            "turn_detection": {"min_silence": 2400, "max_silence": 5000, "interrupt_response": True},
+            # Five seconds of silence before the interviewer takes the turn,
+            # whether or not the answer sounded finished. An interview answer has
+            # thinking pauses in it, and a pause is not an ending: at 2.4 s the
+            # interviewer was stepping on people mid-thought, which is the one
+            # thing that makes an interview feel like a form.
+            "turn_detection": {"min_silence": 5000, "max_silence": 5000, "interrupt_response": True},
             "language_codes": [language],
         },
     }

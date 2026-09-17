@@ -23,10 +23,10 @@ const RATE = 24000;
 // How long to wait for the transcription connection to finish the last words of
 // an answer before assessing it. The agent holds its turn meanwhile.
 const WORDS_SETTLE_MS = 700;
-// How long the interviewer sits in a silence before moving the interview on. Its
-// own turn detection covers the pauses inside an answer; this covers the one
-// thing turn detection cannot see - a candidate who never starts.
-const SILENCE_MS = 5000;
+// How long the interviewer leaves a candidate who has spoken and then stopped
+// before taking the turn back. Nothing is armed until they have spoken: someone
+// who has not started yet is thinking, and has a visible clock of their own.
+const AFTER_SPEAKING_MS = 5000;
 // Before that, the page says out loud that thinking is allowed.
 const PATIENCE_MS = 2000;
 // How long the candidate has for one answer, and when the clock starts to press.
@@ -328,25 +328,32 @@ function playAgentAudio(base64Audio) {
 
 // -- whose turn it is -------------------------------------------------------------
 //
-// Two clocks run while the floor belongs to the candidate, and both of them are
-// honest about what they are for. The budget is shown, so nobody has to guess how
-// long an answer may be. The silence is not shown, because pointing at it would
-// be the opposite of patience: five seconds with nothing said at all, and the
-// interview moves itself on. Speaking cancels the silence and never the budget.
+// Two clocks, and neither of them hurries anyone.
+//
+// The budget is shown. A candidate who has not started talking is not silent,
+// they are thinking, and they can see exactly how long they have - so nothing
+// interrupts them and nothing asks whether they are still there. That was the
+// wrong thing to build: it prompted people who were simply working out what to
+// say.
+//
+// The other clock only ever starts AFTER the candidate has spoken and stopped.
+// Five seconds of that, and the turn goes back to the interviewer, either to
+// follow up or to move on. AssemblyAI waits the same five seconds on its own; this
+// is here for when its turn detection does not fire at all, which would otherwise
+// leave two parties both waiting to be spoken to.
 
-let silenceTimer = null;
 let patienceTimer = null;
 let budgetTimer = null;
+let afterSpeaking = null;
 let clockTicker = null;
 let budgetEndsAt = 0;
-let silences = 0;      // consecutive silences: two in a row and nobody is there
 
 function holdFloor() {
-  clearTimeout(silenceTimer);
   clearTimeout(patienceTimer);
   clearTimeout(budgetTimer);
+  clearTimeout(afterSpeaking);
   clearInterval(clockTicker);
-  silenceTimer = patienceTimer = budgetTimer = clockTicker = null;
+  patienceTimer = budgetTimer = afterSpeaking = clockTicker = null;
   $("clock")?.setAttribute("hidden", "");
 }
 
@@ -360,7 +367,6 @@ function giveTheFloor() {
   patienceTimer = setTimeout(() => {
     if (!speaking) $("state-label").textContent = copy().thinking;
   }, PATIENCE_MS);
-  silenceTimer = setTimeout(nobodySpoke, SILENCE_MS);
   budgetTimer = setTimeout(timeIsUp, ANSWER_MS);
 }
 
@@ -394,14 +400,14 @@ function nudge(instructions) {
   agentWs.send(JSON.stringify({ type: "reply.create", instructions }));
 }
 
-function nobodySpoke() {
-  silenceTimer = null;
-  silences += 1;
-  nudge(silences >= 2
-    ? "The candidate has been silent twice over and may have left. Thank them in one short sentence, "
-      + "say the interview ends here, and call end_interview."
-    : "The candidate has said nothing for five seconds. Do not repeat the question and do not mention "
-      + "the silence. Ask one shorter, simpler question instead.");
+function theyStopped() {
+  // Only ever armed once they have actually said something.
+  clearTimeout(afterSpeaking);
+  afterSpeaking = setTimeout(() => {
+    afterSpeaking = null;
+    nudge("The candidate finished answering five seconds ago and is waiting. Take your turn now: "
+      + "either one follow-up built on what they just said, or the next question, built on it as well.");
+  }, AFTER_SPEAKING_MS);
 }
 
 function timeIsUp() {
@@ -445,9 +451,8 @@ function handleAgent(message) {
     case "input.speech.started":
       player?.port.postMessage("flush");   // barge-in: stop the half-spoken sentence
       lastEvent = "input.speech.started";
-      clearTimeout(silenceTimer);   // they are speaking; the budget keeps running
-      silenceTimer = null;
-      silences = 0;
+      clearTimeout(afterSpeaking);  // they are talking again; the budget keeps running
+      afterSpeaking = null;
       break;
     case "input.speech.stopped":
       // Start measuring the answer now rather than when the agent asks for it:
@@ -455,6 +460,7 @@ function handleAgent(message) {
       // pause between an answer and the next question is a beat, not a wait.
       lastEvent = "input.speech.stopped";
       assessmentFor();
+      theyStopped();
       break;
     case "reply.started":
       lastEvent = "reply.started";

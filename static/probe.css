@@ -82,7 +82,9 @@ h1 {
 h2 {
   font: 600 13.5px/1.4 var(--sans); letter-spacing: .01em;
   color: var(--secondary); margin: 30px 0 12px;
+  display: flex; align-items: center; gap: 9px;
 }
+h2::before { content: ""; width: 14px; height: 3px; border-radius: 2px; background: var(--brand); flex: none; }
 
 /* -- the pieces that carry colour -------------------------------------------- */
 
@@ -174,7 +176,13 @@ h2 {
 .marks { display: flex; gap: 5px; margin-top: 8px; }
 .marks i { width: 26px; height: 4px; background: var(--separator); border-radius: 2px; }
 .marks i.done { background: var(--brand); }
-.clock { display: flex; align-items: baseline; gap: 7px; margin: 0; font-variant-numeric: tabular-nums; }
+.stage b { color: var(--brand); font-weight: 600; }
+.clock {
+  display: flex; align-items: baseline; gap: 7px; margin: 0; font-variant-numeric: tabular-nums;
+  background: var(--grouped); border-radius: 999px; padding: 6px 12px;
+  transition: background .3s;
+}
+.clock.urgent { background: color-mix(in srgb, var(--urgent) 12%, transparent); }
 .clock[hidden] { display: none; }
 .clock-time { font: 600 19px/1 var(--sans); color: var(--ink); }
 .clock-label { color: var(--secondary); font-size: 12.5px; }
@@ -182,7 +190,10 @@ h2 {
 
 /* The question is the one thing on screen that has to stay readable while
    someone is busy thinking about the answer. */
-.sheet { margin-top: 14px; padding: 18px 20px; }
+.sheet {
+  margin-top: 14px; padding: 18px 20px;
+  background: linear-gradient(color-mix(in srgb, var(--brand) 6%, #fff), #fff 90px);
+}
 .said { font: 400 clamp(20px, 5vw, 26px)/1.3 var(--serif); letter-spacing: -0.008em; margin: 0; text-wrap: pretty; }
 
 /* One circle whose ring grows with the level actually being sent. If it moves,
@@ -221,7 +232,10 @@ h2 {
 .turn { margin: 0; font-size: 15px; line-height: 1.5; color: var(--secondary); }
 .turn + .turn { border-top: 1px solid var(--separator); padding-top: 12px; }
 .turn span { font-weight: 600; color: var(--brand); margin-right: .5em; }
-.turn.you, .turn.candidate { color: var(--ink); }
+.turn.you, .turn.candidate {
+  color: var(--ink);
+  padding-left: 11px; border-left: 2px solid color-mix(in srgb, var(--you) 40%, transparent);
+}
 .turn.you span, .turn.candidate span { color: var(--you); }
 
 .center { flex: 1; display: flex; flex-direction: column; justify-content: center; }
@@ -230,18 +244,25 @@ h2 {
 
 /* -- the report --------------------------------------------------------------- */
 
+.card.flag { background: linear-gradient(color-mix(in srgb, var(--flag-solid) 10%, #fff), #fff 120px); }
+.card.clear { background: linear-gradient(color-mix(in srgb, var(--clear-solid) 10%, #fff), #fff 120px); }
+.card.none { background: linear-gradient(var(--grouped), #fff 120px); }
 .summary-head { display: flex; gap: 13px; align-items: flex-start; }
 .headline { font: 600 20px/1.32 var(--sans); letter-spacing: -0.015em; margin: 4px 0 0; text-wrap: pretty; }
 .stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0 0; }
 .stat { background: var(--grouped); border-radius: 11px; padding: 10px 13px; flex: 1 1 8ch; }
 .stat b { display: block; font-size: 19px; font-variant-numeric: tabular-nums; }
+.stat.flag { background: color-mix(in srgb, var(--flag-solid) 15%, transparent); }
+.stat.flag b, .stat.flag span { color: var(--flag); }
+.stat.clear { background: color-mix(in srgb, var(--clear-solid) 15%, transparent); }
+.stat.clear b, .stat.clear span { color: var(--clear); }
 .stat span { color: var(--secondary); font-size: 12.5px; }
 
 .asked { font: 400 clamp(17px, 3.6vw, 19px)/1.34 var(--serif); margin: 0 0 10px; text-wrap: pretty; }
 .asked.unknown { color: var(--secondary); font-style: italic; }
 .said-quote {
   margin: 0 0 12px; font-size: 15px;
-  padding-left: 13px; border-left: 3px solid var(--separator);
+  padding-left: 13px; border-left: 3px solid color-mix(in srgb, var(--you) 45%, transparent);
 }
 .said-quote .partial { display: block; color: var(--secondary); font-size: 13px; margin-bottom: 3px; }
 /* One tinted block per observation, so the verdict is visible before it is read. */

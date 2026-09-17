@@ -17,6 +17,9 @@
 <body>
 <script>
 const SPEED = 60;
+const oops = [];
+window.addEventListener("error", (e) => oops.push(`${e.message} @${e.filename}:${e.lineno}`));
+window.addEventListener("unhandledrejection", (e) => oops.push(`rejected: ${e.reason?.message || e.reason}`));
 const results = [];
 const sent = [];        // every message the page sent to the "agent"
 let socket = null;      // the page's agent websocket
@@ -190,26 +193,42 @@ async function run() {
   check("the earlier exchange is in the history",
     history.includes("what did you do yesterday") && history.includes("went to the gym"));
 
-  // 4. Nobody answers: after five seconds the interview moves itself on.
+  // 4. Nobody has started answering yet. They are thinking, they can see their
+  //    own clock, and nothing should prompt them.
+  agentSays("What was the hardest part?");
   const before = sent.length;
-  await wait(6000);
-  const nudge = sent.slice(before).find((m) => m.type === "reply.create");
-  check("five seconds of silence moves the interview on",
-    nudge && nudge.instructions.includes("said nothing for five seconds"),
-    JSON.stringify(sent.slice(before).map((m) => m.type)));
+  await wait(20000);
+  check("a candidate who has not started is left alone to think",
+    !sent.slice(before).some((m) => m.type === "reply.create"),
+    JSON.stringify(sent.slice(before)));
 
-  // 5. An answer that never ends: the granted time runs out and the turn is taken.
+  // 5. They speak and stop. Five seconds later the turn goes back.
+  agent({ type: "input.speech.started" });
+  speak(1500);
+  heard(6);
+  agent({ type: "input.speech.stopped" });
+  const stopped = sent.length;
+  await wait(2000);
+  check("the first seconds after they stop are still theirs",
+    !sent.slice(stopped).some((m) => m.type === "reply.create"));
+  await wait(5000);
+  const back = sent.slice(stopped).find((m) => m.type === "reply.create");
+  check("five seconds after they stop, the interviewer takes its turn",
+    back && back.instructions.includes("finished answering five seconds ago"),
+    JSON.stringify(sent.slice(stopped).map((m) => m.type)));
+
+  // 6. An answer that never ends: the granted time runs out and the turn is taken.
   agentSays("Tell me about a project.");
-  agent({ type: "input.speech.started" });      // they are talking, so silence never fires
+  agent({ type: "input.speech.started" });      // still talking: nothing is armed
   const mark = sent.length;
-  await wait(8000);
-  check("speaking cancels the silence clock",
-    !sent.slice(mark).some((m) => m.type === "reply.create" && m.instructions.includes("five seconds")));
+  await wait(20000);
+  check("talking without pausing never triggers the five second clock",
+    !sent.slice(mark).some((m) => m.type === "reply.create" && m.instructions.includes("five seconds ago")));
   await wait(95000);
   const expiry = sent.slice(mark).find((m) => m.type === "reply.create" && m.instructions.includes("as long as one answer gets"));
   check("the answer budget runs out and the interviewer takes the turn", Boolean(expiry));
 
-  // 6. The clock is shown while the floor is the candidate's, and counts down.
+  // 6c. The clock is shown while the floor is the candidate's, and counts down.
   agentSays("Last one: what would you change?");
   await wait(1200);
   const clock = document.getElementById("clock");
@@ -217,7 +236,7 @@ async function run() {
   check("the candidate can see how long the answer may run", shown,
     `hidden=${clock.hidden} text=${document.getElementById("clock-time").textContent}`);
 
-  // 6b. A warm-up too short to compare against keeps gathering: what is sent for
+  // 6d. A warm-up too short to compare against keeps gathering: what is sent for
   //     assessment grows, instead of the interview settling on a baseline that
   //     makes every later answer unmeasurable.
   buildingBaseline = true;
@@ -257,6 +276,7 @@ async function run() {
     document.getElementById("screen-interview").hidden,
     `showing: ${[...document.querySelectorAll(".screen")].filter((s) => !s.hidden).map((s) => s.id)}`);
 
+  if (oops.length) check("no errors on the page", false, oops.join(" | "));
   const failed = results.filter((r) => !r.ok);
   document.title = failed.length
     ? `FAIL ${failed.length}/${results.length}`
