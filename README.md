@@ -30,8 +30,10 @@ measurement rests on.
    interviewer one instruction for what to do next.
 4. The interviewer follows it, and asks its next question out of the candidate's
    own words.
-5. The recruiter gets a report: what was asked, what was said, what was measured,
-   and what the measurement cannot tell them.
+5. The recruiter gets a report that opens on **what to dig into at the next
+   interview** — one line per topic, with what the candidate claimed and why it is
+   worth thirty more seconds. Underneath it sits the evidence: every answer, what
+   was measured, and what the measurement cannot tell them.
 
 Six questions, ninety seconds an answer, about five minutes. Three of the six are
 follow-ups, because a follow-up cannot be prepared for and an opening question can.
@@ -59,7 +61,8 @@ Unscripted tells you afterwards. Probe does something about it during.
 - It is **not a proctor**. It does not watch a camera, lock a browser, or claim to
   catch cheating. Reading from notes is not misconduct.
 - It does **not score candidates**, rank them, or recommend a decision. The report
-  says what to ask about at the next interview, and stops there.
+  says what to ask about at the next interview, and stops there. A flag is a
+  question to ask, never a reason to reject.
 - It does **not tell you whether an answer was true** — only how it was delivered.
 - An answer can sound prepared because someone rehearsed, because they have told
   the story fifty times, or because that is simply how they speak. Probe cannot
@@ -119,7 +122,7 @@ a candidate who could read them could prepare for them.
 ## Tests
 
 ```bash
-python -m pytest -q          # 119
+python -m pytest -q          # 123
 ```
 
 Including `tests/test_browser.py`, which runs a whole conversation through the

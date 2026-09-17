@@ -345,7 +345,7 @@ def list_sessions() -> dict:
             saved = json.loads(path.read_text(encoding="utf-8"))
         except ValueError:
             continue    # a half-written file is skipped, never fatal to the list
-        built = report.build(saved, MODEL)
+        built = report.build(saved, MODEL, BRIEF)
         found.append({"id": path.stem, "recorded_at": built["recorded_at"],
                       "language": built["language"], "headline": built["headline"],
                       "status": built["status"], "counts": built["counts"]})
@@ -364,4 +364,4 @@ def build_report(session_id: str) -> dict:
     Every verdict in it was computed while the interview was running. Nothing is
     judged again here, so a report cannot disagree with the interview it describes.
     """
-    return report.build(_read_session(session_id), MODEL)
+    return report.build(_read_session(session_id), MODEL, BRIEF)

@@ -69,29 +69,69 @@ def test_an_answer_with_no_stored_words_admits_it_does_not_know_the_question():
     assert built["answers"][0]["facts"]["words"] == 31
 
 
-def test_the_headline_counts_only_what_could_be_compared():
-    built = report.build(session(), MODEL)
-    assert built["counts"] == {"answers": 2, "compared": 1, "flagged": 1, "words_spoken": 23}
-    assert built["headline"] == "1 of 1 comparable answers sounds prepared."
+BRIEF = {"topics": [{"id": "project", "goal": "What they built and what broke"},
+                    {"id": "judgement", "goal": "How they behave when they are wrong"}]}
+
+
+def test_the_report_opens_on_what_to_do_next():
+    """A recruiter reading this has already spent the five minutes. What they need
+    is the half hour after it spent well, not a measurement."""
+    built = report.build(session(), MODEL, BRIEF)
+    assert built["headline"] == "2 things to dig into at the next interview."
     assert built["status"] == "flag"
+    assert built["counts"] == {"answers": 2, "compared": 1, "flagged": 1, "words_spoken": 23}
+
+
+def test_a_polished_answer_becomes_one_thing_to_ask_about():
+    step = report.build(session(), MODEL, BRIEF)["next_steps"][0]
+    assert step["kind"] == "prepared" and step["topic_id"] == "project"
+    assert step["goal"] == "What they built and what broke"
+    assert step["reasons"] == ["longer words than in the warm-up"]
+    assert "not misconduct" in step["why"]
+
+
+def test_a_topic_the_interview_never_reached_is_said_plainly():
+    step = report.build(session(), MODEL, BRIEF)["next_steps"][-1]
+    assert step["kind"] == "missed" and step["topic_id"] == "judgement"
+    assert step["claim"] == "" and step["reasons"] == []
+
+
+def test_one_line_per_topic_however_many_turns_it_took():
+    """A topic that took four turns to get nowhere is one thing to go back over,
+    not four. A recruiter handed the same sentence four times stops reading."""
+    long_one = session()
+    extra = dict(long_one["assessments"][1], verdict="not_measured", reasons=[], measured=False)
+    long_one["assessments"] = [long_one["assessments"][0], extra, extra, extra,
+                               long_one["assessments"][1]]
+    steps = report.build(long_one, MODEL, BRIEF)["next_steps"]
+    assert [s["topic_id"] for s in steps] == ["project", "judgement"]
+
+
+def test_a_topic_answered_well_is_not_on_the_list():
+    """Nothing to go back over is the point of the list being short."""
+    fine = session()
+    fine["assessments"][1].update(verdict="spontaneous", reasons=[])
+    steps = report.build(fine, MODEL, BRIEF)["next_steps"]
+    assert [s["topic_id"] for s in steps] == ["judgement"]      # only the one never reached
 
 
 def test_nothing_comparable_is_not_a_pass():
-    """An interview with nothing measurable in it says so, and is not reported as
+    """An interview with nothing measurable in it says so, and is never reported as
     clear. A clear report and an empty one mean different things."""
-    empty = session(assessments=[{"topic_id": "warmup", "verdict": "not_measured",
+    empty = session(assessments=[{"topic_id": "warmup", "verdict": "baseline",
                                   "quote": "um", "answer_words": []}])
     built = report.build(empty, MODEL)
     assert built["status"] == "none"
-    assert "could be compared" in built["headline"]
+    assert built["headline"] == "This interview produced nothing to go on."
 
 
 def test_a_clean_interview_says_so_plainly():
     clean = session()
     clean["assessments"][1].update(verdict="spontaneous", reasons=[])
-    built = report.build(clean, MODEL)
+    built = report.build(clean, MODEL)          # no brief: no topic can be missed
     assert built["status"] == "clear"
-    assert built["headline"].startswith("None of the 1")
+    assert built["headline"] == "Nothing here needs a second look."
+    assert built["next_steps"] == []
 
 
 def test_the_facts_are_measured_never_estimated():

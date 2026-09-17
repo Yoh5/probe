@@ -334,3 +334,14 @@ h2::before { content: ""; width: 14px; height: 3px; border-radius: 2px; backgrou
 .chip.waiting { color: var(--secondary); background: var(--grouped); }
 .chip.started { color: var(--flag); background: color-mix(in srgb, var(--flag-solid) 16%, transparent); }
 .chip.done { color: var(--clear); background: color-mix(in srgb, var(--clear-solid) 16%, transparent); }
+
+/* -- what to dig into next ------------------------------------------------------ */
+
+.card.step.prepared { background: linear-gradient(color-mix(in srgb, var(--flag-solid) 9%, #fff), #fff 110px); }
+.card.step .headline { font-size: 18px; }
+.why-step { margin: 12px 0 0; font-size: 14.5px; color: var(--secondary); }
+.goal {
+  margin: 12px 0 0; font-size: 14.5px;
+  background: var(--grouped); border-radius: 11px; padding: 11px 13px;
+}
+.goal b { font-weight: 600; color: var(--ink); }

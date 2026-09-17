@@ -23,6 +23,7 @@ const WORDS = {
   none: "Nothing comparable",
 };
 const TILE = { prepared: "flag", spontaneous: "clear", baseline: "brand", not_measured: "none" };
+const STEP_TILE = { prepared: "flag", not_measured: "none", missed: "none" };
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -86,6 +87,34 @@ function summary(report) {
   return card;
 }
 
+// One card per thing worth going back over. This is the report; everything under
+// it is the evidence behind it.
+function stepCard(step) {
+  const card = el("section", `card step ${step.kind}`);
+  const head = el("div", "summary-head");
+  head.append(tile(STEP_TILE[step.kind] || "none"), el("p", "headline", step.title));
+  card.append(head);
+
+  if (step.claim) {
+    const said = el("blockquote", "said-quote");
+    said.append(el("span", "partial", "What they said"), document.createTextNode(step.claim));
+    card.append(said);
+  }
+  card.append(el("p", "why-step", step.why));
+
+  if (step.goal) {
+    const goal = el("p", "goal");
+    goal.append(el("b", null, "Come away knowing: "), document.createTextNode(step.goal));
+    card.append(goal);
+  }
+  if (step.reasons.length) {
+    const why = el("ul", "why");
+    for (const reason of step.reasons) why.append(el("li", null, reason));
+    card.append(why);
+  }
+  return card;
+}
+
 function answerCard(answer, index) {
   const card = el("section", "card");
 
@@ -132,7 +161,13 @@ function render(report) {
   main.replaceChildren();
   main.append(el("h1", null, "Interview report"), summary(report));
 
-  main.append(el("h2", null, `Answers (${report.counts.compared} of ${report.counts.answers} could be compared)`));
+  if (report.next_steps.length) {
+    main.append(el("h2", null, "Dig into this"));
+    for (const step of report.next_steps) main.append(stepCard(step));
+  }
+
+  main.append(el("h2", null, `The interview, answer by answer `
+    + `(${report.counts.compared} of ${report.counts.answers} could be compared)`));
   report.answers.forEach((answer, index) => main.append(answerCard(answer, index)));
 
   main.append(el("h2", null, "What this report cannot tell you"));

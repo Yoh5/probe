@@ -90,6 +90,68 @@ def _counted(assessment: dict) -> int:
     return 0
 
 
+# What a recruiter should do about each kind of answer, in the second interview.
+# The measurement never decides anything about a candidate; it decides what is
+# worth thirty more seconds of a human being's time.
+NEXT = {
+    "prepared": ("Ask for the parts a rehearsal does not contain",
+                 "This answer came out polished. That is not misconduct and it is not a "
+                 "finding about the candidate - it is a sign that the ground underneath it "
+                 "was not tested."),
+    "not_measured": ("Not covered - ask it again",
+                     "There was not enough here to go on. The topic is still open."),
+    "missed": ("Never came up",
+               "The interview ran out of questions before reaching this."),
+}
+
+
+def _steps(answers: list[dict], brief: dict | None) -> list[dict]:
+    """What to dig into at the next interview, and why.
+
+    This is the report. Everything below it is the evidence behind it: a recruiter
+    who reads nothing else should still know what to do with their next half hour.
+
+    One line per TOPIC, never one per answer. A topic that took four turns to get
+    nowhere is one thing to go back over, not four, and a recruiter handed the same
+    sentence four times stops reading the list.
+    """
+    goals = {t["id"]: t["goal"] for t in (brief or {}).get("topics", [])}
+    order = list(goals) + [a["topic_id"] for a in answers if a["topic_id"] not in goals]
+    by_topic: dict[str, list[dict]] = {}
+    for answer in answers:
+        if answer["verdict"] != "baseline":
+            by_topic.setdefault(answer["topic_id"], []).append(answer)
+
+    steps = []
+    for topic_id in dict.fromkeys(order):
+        got = by_topic.get(topic_id, [])
+        prepared = [a for a in got if a["verdict"] == "prepared"]
+        if prepared:
+            kind, about = "prepared", prepared
+        elif any(a["verdict"] == "spontaneous" for a in got):
+            continue      # answered, and nothing about it asks for a second look
+        elif got:
+            kind, about = "not_measured", got
+        elif topic_id in goals:
+            kind, about = "missed", []
+        else:
+            continue
+        title, why = NEXT[kind]
+        claims = [a["claim"] for a in about if a["claim"]]
+        reasons = [r for a in about for r in a["reasons"]]
+        steps.append({
+            "kind": kind,
+            "title": title,
+            "why": why,
+            "topic_id": topic_id,
+            "goal": goals.get(topic_id, ""),
+            "claim": claims[-1] if claims else "",
+            "question": next((a["question"] for a in reversed(about) if a["question"]), ""),
+            "reasons": list(dict.fromkeys(reasons)),
+        })
+    return steps
+
+
 def _answer(assessment: dict, turns: list[dict]) -> dict:
     words = _words_of(assessment)
     verdict = assessment.get("verdict", "not_measured")
@@ -100,6 +162,7 @@ def _answer(assessment: dict, turns: list[dict]) -> dict:
     reasons = assessment.get("reasons") or []
     return {
         "topic_id": assessment.get("topic_id", ""),
+        "claim": str(assessment.get("claim", "")).strip(),
         "question": question,
         "said": _text(words) or str(assessment.get("quote", "")).strip(),
         "excerpt": not words,          # what is shown is the closing words, not all of them
@@ -150,8 +213,13 @@ def limits(model: dict | None = None) -> list[str]:
     return lines
 
 
-def build(session: dict, model: dict | None = None) -> dict:
-    """The whole report for one saved interview."""
+def build(session: dict, model: dict | None = None, brief: dict | None = None) -> dict:
+    """The whole report for one saved interview.
+
+    It opens on what to do next, not on what was measured. A recruiter reading this
+    has already decided to spend five minutes on the candidate; what they need is
+    the half hour after it spent well.
+    """
     model = model or detector.load()
     turns = session.get("turns") or []
     assessments = session.get("assessments") or []
@@ -159,18 +227,18 @@ def build(session: dict, model: dict | None = None) -> dict:
     answers = [_answer(a, turns) for a in assessments]
     graded = [a for a in answers if a["verdict"] in ("prepared", "spontaneous")]
     flagged = [a for a in graded if a["verdict"] == "prepared"]
+    steps = _steps(answers, brief)
 
-    if not graded:
-        headline = "Nothing in this interview could be compared."
-        status = "none"
-    elif flagged:
-        headline = (f"{len(flagged)} of {len(graded)} comparable answers sound prepared."
-                    if len(flagged) > 1 else
-                    f"1 of {len(graded)} comparable answers sounds prepared.")
-        status = "flag"
-    else:
-        headline = f"None of the {len(graded)} comparable answers sound prepared."
+    if steps:
+        headline = ("One thing to dig into at the next interview." if len(steps) == 1
+                    else f"{len(steps)} things to dig into at the next interview.")
+        status = "flag" if any(s["kind"] == "prepared" for s in steps) else "none"
+    elif graded:
+        headline = "Nothing here needs a second look."
         status = "clear"
+    else:
+        headline = "This interview produced nothing to go on."
+        status = "none"
 
     spoken = sum(a["facts"]["words"] or 0 for a in answers)
     return {
@@ -178,6 +246,7 @@ def build(session: dict, model: dict | None = None) -> dict:
         "language": session.get("language", ""),
         "headline": headline,
         "status": status,
+        "next_steps": steps,
         "counts": {
             "answers": len(answers),
             "compared": len(graded),
