@@ -156,16 +156,23 @@ async def health() -> dict:
         return state
     async with httpx.AsyncClient(timeout=20, verify=tls_context()) as client:
         try:
+            # Two agents: the smallest one the API accepts, and the real interview
+            # with its tools and turn detection. When one works and the other does
+            # not, the payload is the difference; when neither does, the
+            # environment is.
             made = await client.post(AGENTS_URL, headers={"Authorization": key}, json={
                 "name": "Probe health check",
                 "system_prompt": "Say nothing.",
                 "voice": {"voice_id": interview.voice_for("en", BRIEF)},
             })
             state["agent"] = made.status_code
-            if made.status_code < 400 and made.json().get("id"):
-                got = await client.get(f"{AGENTS_URL}/{made.json()['id']}",
+            if made.status_code < 400:
+                state["minimal_agent_id"] = made.json().get("id")
+                state["created_fields"] = sorted(made.json())[:12]
+                got = await client.get(f"{AGENTS_URL}/{state['minimal_agent_id']}",
                                        headers={"Authorization": key})
                 state["agent_readback"] = got.status_code
+            state["full_agent_id"] = await _agent_id(client, key, "en")
             minted = await client.get(AGENT_TOKEN_URL, headers={"Authorization": f"Bearer {key}"},
                                       params={"expires_in_seconds": 60})
             state["token"] = minted.status_code
