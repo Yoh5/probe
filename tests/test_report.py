@@ -297,3 +297,29 @@ def test_an_interview_that_measured_most_of_itself_is_clean():
     built = report.build(fine, MODEL, BRIEF)
     assert built["thin"] is False
     assert built["status"] == "clear"
+
+
+def test_a_lean_says_it_is_a_lean_and_a_finding_does_not():
+    """Reading a lean as a finding is the mistake this exists to stop, and it is the
+    report's job to prevent it rather than the reader's job to remember."""
+    thin, solid = session(), session()
+    thin["assessments"][1]["confidence"] = "thin"
+    solid["assessments"][1]["confidence"] = "solid"
+    assert report.build(thin, MODEL, BRIEF)["answers"][1]["confidence"] == "thin"
+    assert report.build(solid, MODEL, BRIEF)["answers"][1]["confidence"] == "solid"
+
+
+def test_how_long_they_took_to_start_is_reported_when_it_was_timed():
+    """Not one of the four signals - the fit had it as a candidate and did not pick
+    it - so it decides nothing. A long pause before a short fluent answer is still
+    worth a human noticing."""
+    timed = session()
+    timed["assessments"][1]["started_after_ms"] = 4200
+    assert report.build(timed, MODEL, BRIEF)["answers"][1]["facts"]["started_after"] == 4.2
+
+
+@pytest.mark.parametrize("bad", [None, -1, "soon", True])
+def test_a_start_delay_that_was_never_timed_is_not_invented(bad):
+    odd = session()
+    odd["assessments"][1]["started_after_ms"] = bad
+    assert report.build(odd, MODEL, BRIEF)["answers"][1]["facts"]["started_after"] is None

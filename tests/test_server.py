@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import server  # noqa: E402
-from test_assess import CHATTY, WRITTEN, aai_words  # noqa: E402
+from test_assess import CHATTY, WRITTEN, WRITTEN_LONG, aai_words  # noqa: E402
 
 
 @pytest.fixture
@@ -132,12 +132,25 @@ def test_certificate_verification_is_never_disabled():
 
 def test_a_written_answer_comes_back_with_an_instruction(client):
     r = client.post("/api/assess", json={
-        "answer_words": aai_words(WRITTEN, pause_every=9, pause_ms=400),
+        "answer_words": aai_words(WRITTEN_LONG, pause_every=9, pause_ms=400),
         "baseline_words": aai_words(CHATTY)})
     assert r.status_code == 200
     body = r.json()
     assert body["verdict"] == "prepared" and body["sounds_prepared"] is True
+    assert body["confidence"] == "solid"
     assert "follow-up" in body["instruction"]
+
+
+def test_a_short_written_answer_comes_back_as_a_lean(client):
+    """Long enough to compare, short enough that the comparison is not steady. The
+    interviewer is told to get more of the same answer rather than to press one it
+    cannot rely on."""
+    r = client.post("/api/assess", json={
+        "answer_words": aai_words(WRITTEN, pause_every=9, pause_ms=400),
+        "baseline_words": aai_words(CHATTY)})
+    body = r.json()
+    assert body["verdict"] == "prepared" and body["confidence"] == "thin"
+    assert "not steady" in body["instruction"]
 
 
 def test_the_warm_up_itself_is_not_judged(client):

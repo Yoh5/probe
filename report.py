@@ -75,6 +75,14 @@ def _words_of(assessment: dict) -> list[dict]:
     return stored if isinstance(stored, list) and all(isinstance(w, dict) for w in stored) else []
 
 
+def _started_after(assessment: dict) -> float | None:
+    """How long the candidate took to start, in seconds, when the page timed it."""
+    ms = assessment.get("started_after_ms")
+    if not isinstance(ms, (int, float)) or isinstance(ms, bool) or ms < 0:
+        return None
+    return round(ms / 1000, 1)
+
+
 def _counted(assessment: dict) -> int:
     """The word count the interview recorded, for sessions that kept only that."""
     for key in ("words", "answer_words"):
@@ -203,6 +211,9 @@ def _answer(assessment: dict, turns: list[dict], say: dict) -> dict:
         "title": say[f"verdict_{verdict}"],
         "summary": say[f"summary_{verdict}"],
         "measured": bool(assessment.get("measured")),
+        # How steady the verdict is, which is a question about how much speech it
+        # was computed from, not about the candidate.
+        "confidence": assessment.get("confidence") or ("solid" if len(words) >= 45 else "thin"),
         "reasons": reasons,
         "score": assessment.get("score"),
         "threshold": assessment.get("threshold"),
@@ -216,6 +227,7 @@ def _answer(assessment: dict, turns: list[dict], say: dict) -> dict:
             "words": len(words) or _counted(assessment),
             "seconds": _seconds(words),
             "words_per_minute": _speech_rate(words),
+            "started_after": _started_after(assessment),
         },
     }
 

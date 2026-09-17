@@ -76,6 +76,24 @@ questions and reported afterwards whether the answers sounded read. Probe is the
 opposite arrangement: the same measurement, used live, to decide what to ask.
 Unscripted tells you afterwards. Probe does something about it during.
 
+## How steady a verdict is
+
+Three of the four signals are rates, and a rate over a short answer swings on a
+single word: one extra hesitation moves the score by 1.66 standard deviations in
+a 25-word answer, 0.92 in a 45-word one, 0.69 in a 60-word one. Forty-one words
+is where one hesitation stops moving it by a whole deviation.
+
+So an answer under 45 words is reported as a **lean**, not a finding, and the
+interviewer is told to get more of the same answer rather than to press one it
+cannot rely on. This is the honest form of something obvious: a short answer is
+rarely a prepared one, because there is not enough of it to have been prepared
+and not enough of it to tell.
+
+How long someone took to start is reported as a fact and decides nothing. It was
+a candidate signal when the model was fitted and was not selected, so the code
+will not draw a conclusion from it - but a long pause before a short fluent
+answer is worth a human noticing.
+
 ## What it is not
 
 - It is **not a proctor**. It does not watch a camera, lock a browser, or claim to

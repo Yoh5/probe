@@ -21,6 +21,18 @@ import features
 MIN_WORDS = 25
 MIN_BASELINE_WORDS = 15
 
+# Above the floor, a verdict is still only as steady as the speech it was computed
+# from. Three of the four signals are rates, and a rate over a short answer swings
+# on a single word: one extra hesitation moves the z-score by 1.66 standard
+# deviations in a 25-word answer, 0.92 in a 45-word one, 0.69 in a 60-word one.
+# 41 words is where one hesitation stops moving it by a whole deviation, so an
+# answer under 45 is reported as a lean rather than a finding.
+#
+# This is the honest form of something obvious: a short answer is rarely a
+# prepared one. There is not enough of it to have been prepared, and not enough of
+# it to tell.
+SOLID_WORDS = 45
+
 # AssemblyAI's streaming transcript keeps filler words verbatim but does not tag
 # them, so they are recognised by their text.
 FILLERS = {"um", "uh", "uhm", "umm", "er", "erm", "ah", "hmm", "mm", "mhm"}
@@ -121,6 +133,7 @@ def assess(answer: list[dict], baseline: list[dict] | None, model: dict | None =
 
     quote = quote_of(answer)
     result["quote"] = quote
+    result["confidence"] = "solid" if len(answer) >= SOLID_WORDS else "thin"
     # The verdict is still computed and still reported: the interview ends because
     # it has run out of questions, not because of anything the candidate said.
     result["last"] = bool(asked is not None and limit is not None and asked >= limit)
@@ -163,6 +176,18 @@ def assess(answer: list[dict], baseline: list[dict] | None, model: dict | None =
 
     reasons = [detector.EXPLANATIONS[n] for n in scored["pointing_to_reading"] if n in detector.EXPLANATIONS]
     kind = "prepared" if scored["suggests_reading"] else "spontaneous"
+    # A short answer that scores as prepared is not worth pressing on its own
+    # terms - there is too little of it for the score to be steady. What it is
+    # worth is more of the same answer, so the next one can be measured properly.
+    if kind == "prepared" and result["confidence"] == "thin":
+        result.update(measured=True, sounds_prepared=True, score=scored["score"],
+                      reasons=reasons, verdict=kind, pointed=scored["pointing_to_reading"],
+                      instruction=(
+                          "This answer leans towards prepared, but it is short enough that the "
+                          "measurement is not steady - so do not press it as though it were settled. "
+                          "Ask them to take you further into the same thing they just described, in "
+                          f"more detail. {_ground(quote)}"))
+        return finish(result)
     result.update(measured=True, sounds_prepared=scored["suggests_reading"], score=scored["score"],
                   reasons=reasons if kind == "prepared" else [], verdict=kind,
                   # Which signals leaned that way, by name: the report shows the

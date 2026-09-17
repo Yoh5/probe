@@ -177,12 +177,19 @@ function answerCard(answer, index) {
   add(answer.facts.words || null, say.fact_words);
   add(answer.facts.seconds, say.fact_seconds);
   add(answer.facts.words_per_minute, say.fact_rate);
+  add(answer.facts.started_after, say.fact_started);
   if (facts.childElementCount) card.append(facts);
 
   const remark = el("div", `remark ${answer.verdict}`);
   remark.append(tile(TILE[answer.verdict] || "none"));
   const body = el("div");
   body.append(el("p", null, answer.summary));
+  // How steady the verdict is, which is a question about how much speech it came
+  // from and not about the candidate. Saying it here keeps a reader from reading a
+  // lean as a finding.
+  if (answer.measured && answer.confidence === "thin") {
+    body.append(el("p", "lean", say.confidence_thin));
+  }
   remark.append(body);
   card.append(remark);
 

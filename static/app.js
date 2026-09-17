@@ -125,6 +125,8 @@ let lastWordAt = 0;
 // drift.
 let answerFrom = 0;
 let questionsAsked = 0;    // interviewer turns, which is what the limit counts
+let floorGivenAt = 0;      // when the interviewer stopped, on the page's own clock
+let startedAfterMs = null; // how long the candidate took to start, on that same clock
 let baselineWords = null;  // the warm-up, once it is long enough to compare against
 let warmupWords = [];      // what has been said in the warm-up so far, while it is still short
 let turns = [];
@@ -413,6 +415,12 @@ function holdFloor() {
 function giveTheFloor() {
   holdFloor();
   turnId += 1;
+  // How long it takes someone to start. It is not one of the four signals - the
+  // fit had it as a candidate and did not select it - so it decides nothing. It
+  // is shown to the recruiter as a fact, because a long pause before a short
+  // fluent answer is worth a human noticing even when the code will not say so.
+  floorGivenAt = performance.now();
+  startedAfterMs = null;
   budgetEndsAt = performance.now() + ANSWER_MS;
   $("clock")?.removeAttribute("hidden");
   renderClock();
@@ -506,6 +514,9 @@ function handleAgent(message) {
       lastEvent = "input.speech.started";
       clearTimeout(afterSpeaking);  // they are talking again; the budget keeps running
       afterSpeaking = null;
+      if (startedAfterMs === null && floorGivenAt) {
+        startedAfterMs = Math.round(performance.now() - floorGivenAt);
+      }
       break;
     case "input.speech.stopped":
       // Start measuring the answer now rather than when the agent asks for it:
@@ -562,7 +573,7 @@ async function handleTool(call) {
   // the spread below would quietly replace the list with it - which is how the
   // first reports were built with no answers in them.
   assessments.push({ topic_id: topic, claim: call.arguments?.claim ?? "", question: held || "",
-                     ...verdict, answer_words: answerWords });
+                     started_after_ms: startedAfterMs, ...verdict, answer_words: answerWords });
   queueResult(call.call_id, { instruction: verdict.instruction, verdict: verdict.verdict });
   // The interview has used up its questions. The agent has been told to thank the
   // candidate and end; if it asks one more instead, the page ends it anyway. A

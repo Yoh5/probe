@@ -24,10 +24,17 @@ CHATTY = ("so yesterday I, uh, I got up pretty early, went to the gym, and then,
 CHATTY_2 = ("well I built a tool, uh, a small tool, for cleaning data, and the hard part was, "
             "you know, the files, the files were messy, so I, I wrote checks, and it kind of "
             "worked, and I learned a lot from it, really")
+# 44 words: over the floor at which an answer can be compared, under the length at
+# which the comparison is steady. Both sides of that boundary need a fixture, and
+# neither should sit on it.
 WRITTEN = ("I designed an intelligent data cleaning platform as the sole developer. The architecture "
            "combined a profiling engine detecting missing values and inferring column types, a "
            "recommendation engine suggesting cleaning strategies, and a generator producing validated "
            "Python scripts. Handling inconsistent delimiters taught me defensive programming.")
+WRITTEN_LONG = WRITTEN + (" The validation layer verified every generated transformation against a "
+                          "schema derived from the profiling stage, which eliminated an entire class "
+                          "of silent failures. Documenting those guarantees for future maintainers "
+                          "proved as valuable as the implementation itself.")
 
 
 def aai_words(text, start_ms=0, pause_every=4, pause_ms=600):
@@ -67,7 +74,7 @@ def test_words_between_uses_the_start_of_each_word():
 # -- the verdict ----------------------------------------------------------------------------
 
 def test_a_written_answer_gets_a_probe_instruction_with_its_reasons():
-    r = assess.assess(converted(WRITTEN, pause_every=9, pause_ms=400), converted(CHATTY), MODEL)
+    r = assess.assess(converted(WRITTEN_LONG, pause_every=9, pause_ms=400), converted(CHATTY), MODEL)
     assert r["verdict"] == "prepared" and r["sounds_prepared"] is True
     assert r["reasons"], r
     assert "exactly one short follow-up" in r["instruction"]
@@ -183,3 +190,50 @@ def test_the_warm_up_is_ready_exactly_at_the_minimum():
     assert assess.assess(converted(words), None, MODEL)["baseline_ready"] is True
     fewer = " ".join(f"word{i}" for i in range(assess.MIN_BASELINE_WORDS - 1))
     assert assess.assess(converted(fewer), None, MODEL)["baseline_ready"] is False
+
+
+# -- how steady a verdict is depends on how much speech it came from ---------------
+
+def test_a_short_answer_is_reported_as_a_lean_not_a_finding():
+    """Three of the four signals are rates, and a rate over a short answer swings on
+    a single word: one extra hesitation moves the z-score by 1.66 deviations at 25
+    words and 0.69 at 60. A short answer is also rarely a prepared one - there is
+    not enough of it to have been prepared, and not enough of it to tell."""
+    r = assess.assess(converted(WRITTEN, pause_every=9, pause_ms=400), converted(CHATTY), MODEL)
+    assert r["verdict"] == "prepared"
+    assert r["confidence"] == "thin"
+    assert "not steady" in r["instruction"]
+    assert "further into the same thing" in r["instruction"]
+    assert "exactly one short follow-up" not in r["instruction"]
+
+
+def test_a_long_answer_is_pressed_on_its_own_terms():
+    r = assess.assess(converted(WRITTEN_LONG, pause_every=9, pause_ms=400), converted(CHATTY), MODEL)
+    assert r["verdict"] == "prepared"
+    assert r["confidence"] == "solid"
+    assert "exactly one short follow-up" in r["instruction"]
+
+
+def test_the_reasons_survive_either_way():
+    """A lean is still a lean about something, and the recruiter sees the same
+    signals whichever side of the boundary the answer fell on."""
+    short = assess.assess(converted(WRITTEN, pause_every=9, pause_ms=400), converted(CHATTY), MODEL)
+    long = assess.assess(converted(WRITTEN_LONG, pause_every=9, pause_ms=400), converted(CHATTY), MODEL)
+    assert short["reasons"] and long["reasons"]
+    assert short["pointed"] and long["pointed"]
+
+
+def test_confidence_is_reported_even_when_nothing_could_be_measured():
+    r = assess.assess(converted("far too short"), converted(CHATTY), MODEL)
+    assert r["verdict"] == "not_measured" and r["confidence"] == "thin"
+
+
+def test_the_boundary_is_where_the_arithmetic_puts_it():
+    """41 words is where one hesitation stops moving the score by a whole standard
+    deviation. 45 leaves a margin; anything much lower would be reporting noise as
+    a finding."""
+    assert 41 <= assess.SOLID_WORDS <= 60
+    just_under = " ".join(f"word{i}" for i in range(assess.SOLID_WORDS - 1))
+    just_over = " ".join(f"word{i}" for i in range(assess.SOLID_WORDS))
+    assert assess.assess(converted(just_under), converted(CHATTY), MODEL)["confidence"] == "thin"
+    assert assess.assess(converted(just_over), converted(CHATTY), MODEL)["confidence"] == "solid"

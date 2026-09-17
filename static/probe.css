@@ -422,3 +422,4 @@ h2::before { content: ""; width: 14px; height: 3px; border-radius: 2px; backgrou
   background: color-mix(in srgb, var(--flag-solid) 12%, transparent);
   border-radius: 11px; padding: 10px 13px;
 }
+.lean { margin: 8px 0 0; font-size: 13.5px; color: var(--secondary); }

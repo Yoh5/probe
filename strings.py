@@ -22,6 +22,8 @@ SIGNAL_KINDS = {
 
 STRINGS = {
     "en": {
+        "fact_started": "seconds before starting",
+        "confidence_thin": "Short answer - a lean, not a finding. Three of the four signals are rates, and over this little speech a single hesitation moves the score further than the difference being measured.",
         "scale": "Every measured answer on one line",
         "scale_note": "One number per answer, from four signals compared with this candidate's own warm-up. The only thing that matters is which side of the line it falls.",
         "scale_left": "sounds thought through",
@@ -109,6 +111,8 @@ STRINGS = {
         "many_speakers": "{n} speakers",
     },
     "fr": {
+        "fact_started": "secondes avant de commencer",
+        "confidence_thin": "Réponse courte - une tendance, pas un constat. Trois des quatre signaux sont des taux, et sur si peu de parole une seule hésitation déplace le score plus que l'écart qu'on mesure.",
         "scale": "Chaque réponse mesurée sur une même échelle",
         "scale_note": "Un nombre par réponse, à partir de quatre signaux comparés à l'échauffement du candidat. Seul compte le côté de la ligne où il tombe.",
         "scale_left": "sonne pensée sur le moment",
@@ -195,6 +199,8 @@ STRINGS = {
         "many_speakers": "{n} locuteurs",
     },
     "es": {
+        "fact_started": "segundos antes de empezar",
+        "confidence_thin": "Respuesta corta - una tendencia, no un hallazgo. Tres de las cuatro señales son tasas, y con tan poca habla una sola vacilación mueve el resultado más que la diferencia que se mide.",
         "scale": "Cada respuesta medida en una misma escala",
         "scale_note": "Un número por respuesta, a partir de cuatro señales comparadas con el calentamiento del propio candidato. Solo importa de qué lado de la línea cae.",
         "scale_left": "suena pensada en el momento",
@@ -280,6 +286,8 @@ STRINGS = {
         "many_speakers": "{n} hablantes",
     },
     "de": {
+        "fact_started": "Sekunden bis zum Beginn",
+        "confidence_thin": "Kurze Antwort - eine Tendenz, kein Befund. Drei der vier Signale sind Raten, und bei so wenig Gesprochenem verschiebt ein einziges Zögern den Wert weiter als der gemessene Unterschied.",
         "scale": "Jede gemessene Antwort auf einer Skala",
         "scale_note": "Eine Zahl je Antwort, aus vier Signalen im Vergleich zum eigenen Aufwärmen der Person. Es zählt nur, auf welcher Seite der Linie sie liegt.",
         "scale_left": "klingt im Moment gedacht",
@@ -366,6 +374,8 @@ STRINGS = {
         "many_speakers": "{n} Stimmen",
     },
     "it": {
+        "fact_started": "secondi prima di iniziare",
+        "confidence_thin": "Risposta breve - una tendenza, non un riscontro. Tre dei quattro segnali sono tassi, e su così poco parlato una sola esitazione muove il punteggio più della differenza che si misura.",
         "scale": "Ogni risposta misurata su una sola scala",
         "scale_note": "Un numero per risposta, da quattro segnali confrontati con il riscaldamento del candidato stesso. Conta solo da che parte della linea cade.",
         "scale_left": "suona pensata sul momento",
@@ -452,6 +462,8 @@ STRINGS = {
         "many_speakers": "{n} parlanti",
     },
     "pt": {
+        "fact_started": "segundos antes de começar",
+        "confidence_thin": "Resposta curta - uma tendência, não uma conclusão. Três dos quatro sinais são taxas, e com tão pouca fala uma única hesitação move o resultado mais do que a diferença que se mede.",
         "scale": "Cada resposta medida numa só escala",
         "scale_note": "Um número por resposta, a partir de quatro sinais comparados com o aquecimento do próprio candidato. Só conta de que lado da linha cai.",
         "scale_left": "soa pensada no momento",
