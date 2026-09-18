@@ -214,11 +214,18 @@ with one, and ships on free.
 | `features.py`, `detector.py` | the signals and the frozen model behind that verdict |
 | `report.py` | the recruiter's report, built from the saved session |
 | `invites.py` | one candidate, one link, spent when the interview is taken |
+| `strings.py` | every word the report shows, in six languages |
 | `static/app.js` | the two websockets, the microphone, the turn-taking, the clocks |
 
 The API key never reaches the browser: the page is handed an agent id and two
 single-use tokens that expire in two minutes. The topics stay on the server —
 a candidate who could read them could prepare for them.
+
+An interview is saved as two files. The transcript is the largest part of it and
+the only part the list of interviews never looks at, so it lives beside the
+session rather than inside it, and each answer is a range into it rather than a
+second copy of the same words. Together that is a third off the size of a
+session, and a listing that reads 2 MB where it used to read 7.
 
 ## What was written before this hackathon
 
@@ -245,7 +252,7 @@ the frozen model, in the way any project shares a library.
 ## Tests
 
 ```bash
-python -m pytest -q          # 136
+python -m pytest -q          # 178
 ```
 
 Including `tests/test_browser.py`, which runs a whole conversation through the

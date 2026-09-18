@@ -390,7 +390,15 @@ async def save_session(request: Request) -> dict:
     # The id is built here, never taken from the request: it becomes a file name.
     session_id = f"{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}-{secrets.token_hex(4)}"
     SESSIONS_DIR.mkdir(exist_ok=True)
+    # The transcript goes in its own file. It is by far the largest part of a
+    # session and the only part the list of interviews never looks at, so keeping
+    # it here would mean reading megabytes to render four fields per row. It is
+    # written without indentation for the same reason: nothing reads it by eye.
+    words = session.pop("words", None)
     (SESSIONS_DIR / f"{session_id}.json").write_text(json.dumps(session, indent=2), encoding="utf-8")
+    if words:
+        (SESSIONS_DIR / f"{session_id}.words.json").write_text(
+            json.dumps(words, separators=(",", ":")), encoding="utf-8")
 
     invite_id = session.get("invite")
     if invite_id:
@@ -402,14 +410,20 @@ async def save_session(request: Request) -> dict:
     return {"id": session_id}
 
 
-def _read_session(session_id: str) -> dict:
+def _read_session(session_id: str, with_words: bool = True) -> dict:
+    """One saved interview, with its transcript unless the caller has no use for it."""
     # The id reaches a file path, so its shape is checked before anything else.
     if not SESSION_ID.match(session_id):
         raise HTTPException(404, "no such session")
     path = SESSIONS_DIR / f"{session_id}.json"
     if not path.is_file():
         raise HTTPException(404, "no such session")
-    return json.loads(path.read_text(encoding="utf-8"))
+    session = json.loads(path.read_text(encoding="utf-8"))
+    if with_words and "words" not in session:
+        beside = SESSIONS_DIR / f"{session_id}.words.json"
+        if beside.is_file():
+            session["words"] = json.loads(beside.read_text(encoding="utf-8"))
+    return session
 
 
 @app.get("/api/sessions")
@@ -420,15 +434,18 @@ def list_sessions() -> dict:
     found = []
     for path in sorted(SESSIONS_DIR.glob("*.json"), reverse=True):
         if not SESSION_ID.match(path.stem):
-            continue
+            continue        # skips the .words.json files, whose stem has a suffix
         try:
             saved = json.loads(path.read_text(encoding="utf-8"))
         except ValueError:
-            continue    # a half-written file is skipped, never fatal to the list
+            continue        # a half-written file is skipped, never fatal to the list
+        # No transcript: the headline and the status come from the verdicts, which
+        # are stored with the assessments. Word counts would need it, and no row
+        # shows one.
         built = report.build(saved, MODEL, BRIEF)
         found.append({"id": path.stem, "recorded_at": built["recorded_at"],
                       "language": built["language"], "headline": built["headline"],
-                      "status": built["status"], "counts": built["counts"]})
+                      "status": built["status"]})
     return {"sessions": found}
 
 

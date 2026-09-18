@@ -61,13 +61,18 @@ def question_before(turns: list[dict], began_ms: float) -> str:
     return str(asked[-1].get("text", "")).strip() if asked else ""
 
 
-def _words_of(assessment: dict) -> list[dict]:
-    """The answer's words, when the session has them.
+def _words_of(assessment: dict, transcript: list[dict]) -> list[dict]:
+    """The answer's words: a slice of the transcript, which is where they live.
 
-    Sessions recorded before this was stored kept only a count under the same
-    name; a count is not a list, and the report says less about those rather than
-    inventing the difference.
+    Three shapes have been stored over time. Newest is a pair of indices into the
+    session's own word list, which is the only one that does not keep a second copy
+    of every word. Before that the words themselves were copied in, and before
+    that only a count survived - a count is not a list, and the report says less
+    about those sessions rather than inventing the difference.
     """
+    start, stop = assessment.get("from"), assessment.get("to")
+    if isinstance(start, int) and isinstance(stop, int) and not isinstance(start, bool):
+        return [w for w in transcript[max(0, start):max(0, stop)] if isinstance(w, dict)]
     words = assessment.get("answer_words")
     if isinstance(words, list) and all(isinstance(w, dict) for w in words):
         return words
@@ -187,8 +192,8 @@ def _measured(assessment: dict, say: dict) -> list[dict]:
     return out
 
 
-def _answer(assessment: dict, turns: list[dict], say: dict) -> dict:
-    words = _words_of(assessment)
+def _answer(assessment: dict, turns: list[dict], say: dict, transcript: list[dict]) -> dict:
+    words = _words_of(assessment, transcript)
     verdict = assessment.get("verdict", "not_measured")
     if verdict not in ("prepared", "spontaneous", "baseline", "not_measured"):
         verdict = "not_measured"
@@ -298,7 +303,8 @@ def build(session: dict, model: dict | None = None, brief: dict | None = None) -
     turns = session.get("turns") or []
     assessments = session.get("assessments") or []
 
-    answers = [_answer(a, turns, say) for a in assessments]
+    transcript = session.get("words") or []
+    answers = [_answer(a, turns, say, transcript) for a in assessments]
     # The last link in the chain, and the one that makes the rest of it checkable:
     # the question that followed an answer is the question of the next one.
     for earlier, later in zip(answers, answers[1:]):

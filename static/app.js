@@ -562,7 +562,7 @@ async function handleTool(call) {
   if (call.name !== "assess_answer") return queueResult(call.call_id, { error: "unknown tool" });
 
   const topic = String(call.arguments?.topic_id ?? "warmup");
-  const { building, answerWords, sent, verdict } = await assessmentFor();
+  const { building, answerWords, sent, verdict, from, to } = await assessmentFor();
   if (building) {
     warmupWords = sent;                                   // keep what has been said so far
     if (verdict.baseline_ready) baselineWords = sent;     // long enough to compare against
@@ -572,8 +572,11 @@ async function handleTool(call) {
   // answer_words, not words: the verdict carries a word COUNT under that name and
   // the spread below would quietly replace the list with it - which is how the
   // first reports were built with no answers in them.
+  // Where the answer sits in the transcript, not a copy of it. Every word was
+  // already being stored once in `words`; storing them again per answer made a
+  // session up to twice the size it needed to be, for nothing.
   assessments.push({ topic_id: topic, claim: call.arguments?.claim ?? "", question: held || "",
-                     started_after_ms: startedAfterMs, ...verdict, answer_words: answerWords });
+                     started_after_ms: startedAfterMs, ...verdict, from, to });
   queueResult(call.call_id, { instruction: verdict.instruction, verdict: verdict.verdict });
   // The interview has used up its questions. The agent has been told to thank the
   // candidate and end; if it asks one more instead, the page ends it anyway. A
@@ -639,7 +642,8 @@ async function assessAnswer(from, id) {
       error: error.message,
     };
   }
-  return { building, answerWords, sent, verdict, seen: words.length };
+  return { building, answerWords, sent, verdict, from, to: from + answerWords.length,
+           seen: words.length };
 }
 
 // Give the transcription connection a moment to finalise the last words of the

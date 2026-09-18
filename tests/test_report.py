@@ -323,3 +323,44 @@ def test_a_start_delay_that_was_never_timed_is_not_invented(bad):
     odd = session()
     odd["assessments"][1]["started_after_ms"] = bad
     assert report.build(odd, MODEL, BRIEF)["answers"][1]["facts"]["started_after"] is None
+
+
+# -- the answer lives in the transcript, not beside it ------------------------------
+
+def indexed(session_dict):
+    """The session as the page writes it now: one word list, and ranges into it."""
+    words, assessments = [], []
+    for assessment in session_dict["assessments"]:
+        own = assessment.pop("answer_words", []) or []
+        assessments.append({**assessment, "from": len(words), "to": len(words) + len(own)})
+        words.extend(own)
+    return {**session_dict, "words": words, "assessments": assessments}
+
+
+def test_an_answer_is_a_range_into_the_transcript():
+    """Every word was already stored once. Storing them again per answer made a
+    session up to twice the size it needed to be, for nothing."""
+    built = report.build(indexed(session()), MODEL, BRIEF)
+    assert built["answers"][1]["facts"]["words"] == 12
+    assert built["answers"][1]["said"].startswith("The first file")
+    assert built["counts"]["words_spoken"] == 23
+
+
+def test_the_two_shapes_produce_the_same_report():
+    """Sessions recorded before the change keep their copied words, and must read
+    exactly the same as ones recorded after it."""
+    copied = report.build(session(), MODEL, BRIEF)
+    ranged = report.build(indexed(session()), MODEL, BRIEF)
+    for old, new in zip(copied["answers"], ranged["answers"]):
+        assert old["said"] == new["said"]
+        assert old["facts"] == new["facts"]
+        assert old["verdict"] == new["verdict"]
+
+
+@pytest.mark.parametrize("start, stop", [(-5, 3), (0, 9999), (5, 2), (None, 2)])
+def test_a_range_that_makes_no_sense_yields_nothing_rather_than_crashing(start, stop):
+    """A truncated or hand-edited session must not take the report down with it."""
+    broken = indexed(session())
+    broken["assessments"][1].update({"from": start, "to": stop})
+    built = report.build(broken, MODEL, BRIEF)
+    assert isinstance(built["answers"][1]["facts"]["words"], int)

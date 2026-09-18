@@ -460,3 +460,56 @@ def test_the_region_is_read_from_the_environment(monkeypatch, region, host):
     finally:
         monkeypatch.delenv("PROBE_REGION")
         importlib.reload(server)
+
+
+# -- what a saved interview costs to read -------------------------------------------
+
+def test_the_transcript_is_stored_beside_the_session_not_inside_it(client, minted):
+    """The transcript is the largest part of an interview and the one part the list
+    of interviews never looks at. Inside the session file it would mean reading
+    megabytes to render four fields a row."""
+    words = aai_words(WRITTEN)
+    saved = client.post("/api/sessions", json={"turns": [], "assessments": [], "words": words})
+    session_id = saved.json()["id"]
+
+    beside = server.SESSIONS_DIR / f"{session_id}.words.json"
+    assert beside.is_file()
+    inline = json.loads((server.SESSIONS_DIR / f"{session_id}.json").read_text("utf-8"))
+    assert inline.get("words") is None
+    assert len(json.loads(beside.read_text("utf-8"))) == len(words)
+
+
+def test_the_report_still_sees_the_whole_transcript(client, minted):
+    """Split on disk, whole when it is read: a report resolves each answer against
+    the transcript, so it has to come back together."""
+    words = aai_words(WRITTEN)
+    session_id = client.post("/api/sessions", json={
+        "turns": [{"role": "interviewer", "text": "Q", "at": 0}],
+        "assessments": [{"topic_id": "project", "verdict": "prepared", "question": "Q",
+                         "from": 0, "to": len(words)}],
+        "words": words,
+    }).json()["id"]
+    answer = client.get(f"/api/report/{session_id}").json()["answers"][0]
+    assert answer["facts"]["words"] == len(words)
+    assert answer["said"].startswith("I designed an intelligent")
+
+
+def test_a_session_saved_the_old_way_still_reads(client, minted):
+    """Interviews recorded before the split keep their transcript inline."""
+    server.SESSIONS_DIR.mkdir(exist_ok=True)
+    words = aai_words(CHATTY)
+    (server.SESSIONS_DIR / "20260101T000000Z-aaaaaaaa.json").write_text(json.dumps({
+        "language": "en", "turns": [], "words": words,
+        "assessments": [{"topic_id": "warmup", "verdict": "baseline", "from": 0, "to": len(words)}],
+    }), encoding="utf-8")
+    answer = client.get("/api/report/20260101T000000Z-aaaaaaaa").json()["answers"][0]
+    assert answer["facts"]["words"] == len(words)
+
+
+def test_the_transcript_files_are_not_mistaken_for_interviews(client, minted):
+    """They sit in the same folder and end in .json. A row per transcript would be
+    a row that opens nothing."""
+    client.post("/api/sessions", json={"turns": [], "assessments": [], "words": aai_words(CHATTY)})
+    listed = client.get("/api/sessions").json()["sessions"]
+    assert len(listed) == 1
+    assert not listed[0]["id"].endswith(".words")
